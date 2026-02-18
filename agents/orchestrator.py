@@ -1,7 +1,8 @@
 from typing import Optional, List, Dict, Any
 import time as time_module
+import os
 
-from schemas.cactbot_schemas import CactbotTimelineInput
+from schemas.cactbot_schemas import CactbotTimelineInput, CactbotTimelineEntry
 from schemas.fflogs_schemas import FFLogsReportInput
 from schemas.timeline_schemas import (
     TimelineGenerationRequest,
@@ -10,6 +11,7 @@ from schemas.timeline_schemas import (
     TimelineSummary,
 )
 from schemas.damage_schemas import DamageEvent
+from schemas.youtube_schemas import YouTubeTranscript
 
 from agents.cactbot_agent import CactbotTimelineAgent
 from agents.fflogs_agent import FFLogsReportAgent
@@ -17,6 +19,7 @@ from agents.damage_extractor_agent import DamageEventExtractorAgent
 from agents.variant_detector_agent import TimelineVariantDetectorAgent
 from agents.aggregator_agent import TimelineAggregatorAgent
 from agents.timeline_builder_agent import TimelineBuilderAgent
+from agents.transcript_enrichment_orchestrator import TranscriptEnrichmentOrchestrator
 
 from config import config
 
@@ -25,20 +28,30 @@ class TimelineGenerationOrchestrator:
     """
     Orchestrator agent that coordinates all atomic agents into a pipeline.
     
-    This is the main entry point for timeline generation.
-    
     Pipeline:
-    1. CactbotTimelineAgent - Fetch timeline from Cactbot
-    2. FFLogsReportAgent - Discover and fetch reports from FFLogs
-    3. DamageEventExtractorAgent - Extract damage events and sync to timeline
-    4. TimelineVariantDetectorAgent - Detect timeline variants and default path
-    5. TimelineAggregatorAgent - Aggregate damage values and statistics
-    6. TimelineBuilderAgent - Build final output with all variants
+    1. CactbotTimelineAgent - Fetch timeline from Cactbot (simple HTTP + regex, no LLM needed)
+    2. FFLogsReportAgent - Discover and fetch reports from FFLogs (API client, no LLM needed)
+    3. DamageEventExtractorAgent - Extract damage events (rule-based, no LLM needed)
+    4. TimelineVariantDetectorAgent - Detect timeline variants (atomic agent with LLM)
+    5. TimelineAggregatorAgent - Aggregate damage values (atomic agent with LLM)
+    6. TranscriptEnrichmentOrchestrator - Enrich with YouTube descriptions (atomic agent with LLM)
+    7. TimelineBuilderAgent - Build final output (atomic agent with LLM)
     """
     
-    def __init__(self, client_id: str, client_secret: str):
+    def __init__(
+        self,
+        client_id: str,
+        client_secret: str,
+        llm_client=None,
+        youtube_api_key: Optional[str] = None,
+    ):
         self.client_id = client_id
         self.client_secret = client_secret
+        self.llm_client = llm_client
+        self.youtube_api_key = youtube_api_key or os.environ.get("YOUTUBE_API_KEY", "")
+        
+        if not llm_client:
+            raise ValueError("LLM client is required for atomic agents")
         
         self.cactbot_agent = CactbotTimelineAgent()
         self.fflogs_agent = FFLogsReportAgent(client_id, client_secret)
@@ -46,6 +59,20 @@ class TimelineGenerationOrchestrator:
         self.variant_detector = TimelineVariantDetectorAgent()
         self.aggregator = TimelineAggregatorAgent()
         self.builder = TimelineBuilderAgent()
+        
+        # Transcript enrichment (optional - can work without LLM for basic descriptions)
+        self.transcript_orchestrator = None
+        if self.youtube_api_key or True:  # Always init, works without API key
+            try:
+                raw_llm_client = config.get_raw_client()
+                self.transcript_orchestrator = TranscriptEnrichmentOrchestrator(
+                    llm_client=llm_client,
+                    raw_llm_client=raw_llm_client,
+                    model=config.llm_model,
+                    youtube_api_key=self.youtube_api_key,
+                )
+            except Exception:
+                pass
     
     def run(
         self,
@@ -91,6 +118,8 @@ class TimelineGenerationOrchestrator:
                     cactbot_result.error_message or "Cactbot timeline fetch failed"
                 )
             
+            timeline_entries = cactbot_result.timeline_entries
+            
             fflogs_input = FFLogsReportInput(
                 boss_id=request.boss_id,
                 encounter_id=encounter_id,
@@ -111,7 +140,10 @@ class TimelineGenerationOrchestrator:
             
             for report in fflogs_result.reports:
                 for fight in report.fights:
+                    # Must filter by encounter_id - report contains fights for all bosses
                     if not fight.kill:
+                        continue
+                    if encounter_id and fight.encounter_id != encounter_id:
                         continue
                     
                     try:
@@ -134,13 +166,65 @@ class TimelineGenerationOrchestrator:
             
             variant_result = self.variant_detector.run(
                 damage_events_by_report,
-                cactbot_result.timeline_entries,
+                timeline_entries,
             )
             
             aggregation_result = self.aggregator.run(
                 all_events,
-                cactbot_result.timeline_entries,
+                timeline_entries,
             )
+            
+            # Step 6: Optional - Enrich with YouTube transcript descriptions
+            youtube_descriptions: Dict[str, str] = {}
+            
+            if request.enable_transcript_enrichment and self.transcript_orchestrator:
+                try:
+                    # Convert variant_points to dict format for compatibility
+                    statistical_variants = []
+                    if hasattr(variant_result, 'variant_points'):
+                        for vp in variant_result.variant_points:
+                            statistical_variants.append({
+                                "branch_point_time": vp.branch_point_time,
+                                "branch_point_name": vp.branch_point_name,
+                                "branches": [
+                                    {
+                                        "action_sequence": b.action_sequence,
+                                        "is_default": b.is_default,
+                                    }
+                                    for b in vp.branches
+                                ],
+                            })
+                    
+                    from schemas.youtube_schemas import TimelineEnrichmentInput
+                    
+                    enrichment_input = TimelineEnrichmentInput(
+                        boss_id=request.boss_id,
+                        boss_name=boss_name,
+                        base_timeline=[],
+                        youtube_video_ids=request.youtube_video_ids,
+                        include_variants=True,
+                    )
+                    
+                    # Run enrichment
+                    enrichment_output = self.transcript_orchestrator.run(
+                        enrichment_input,
+                        timeline_entries,
+                        aggregation_result.aggregated_actions,
+                        statistical_variants,
+                    )
+                    
+                    for action in enrichment_output.enriched_actions:
+                        if action.transcript_description:
+                            name_lower = action.name.lower()
+                            youtube_descriptions[name_lower] = action.transcript_description
+                            youtube_descriptions[name_lower.replace(" ", "_")] = action.transcript_description
+                            youtube_descriptions["".join(c for c in name_lower if c.isalnum())] = action.transcript_description
+                    
+                    if enrichment_output.transcripts_used > 0:
+                        warnings.append(f"Enriched {len(youtube_descriptions)} actions with YouTube descriptions")
+                        
+                except Exception as e:
+                    warnings.append(f"Transcript enrichment failed: {e}")
             
             timeline_output = self.builder.run(
                 aggregation_result.aggregated_actions,
@@ -148,6 +232,7 @@ class TimelineGenerationOrchestrator:
                 request.boss_id,
                 boss_name,
                 fflogs_report_codes=report_codes,
+                youtube_descriptions=youtube_descriptions,
             )
             
             if request.output_path:
@@ -191,13 +276,20 @@ class TimelineGenerationOrchestrator:
             )
             
             ability_lookup = self.fflogs_agent.create_ability_lookup(report)
-            boss_ids = self.fflogs_agent.extract_boss_actor_ids(fight, report)
+            
+            # Get player actor IDs from master data (filter by target being player, not source being boss)
+            player_ids = []
+            if report.master_data:
+                for actor in report.master_data.actors:
+                    if actor.actor_type == "Friendly":
+                        player_ids.append(actor.id)
             
             for raw_event in raw_events:
                 if raw_event.get("type") != "damage":
                     continue
                 
-                if boss_ids and raw_event.get("sourceID") not in boss_ids:
+                # Only include events where target is a player (not boss)
+                if player_ids and raw_event.get("targetID") not in player_ids:
                     continue
                 
                 unmitigated = raw_event.get("unmitigatedAmount", 0) or 0
@@ -251,3 +343,5 @@ class TimelineGenerationOrchestrator:
     def close(self):
         self.cactbot_agent.close()
         self.fflogs_agent.close()
+        if self.transcript_orchestrator:
+            self.transcript_orchestrator.close()
