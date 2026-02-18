@@ -85,7 +85,7 @@ class FFLogsClient:
             md = report["masterData"]
             master_data = FFLogsMasterData(
                 abilities=[FFLogsAbility(**a) for a in md.get("abilities", [])],
-                actors=[FFLogsActor(id=a["id"], name=a["name"], actor_type=a.get("type", "Unknown")) 
+                actors=[FFLogsActor(**{"id": a["id"], "name": a["name"], "type": a.get("type", "Unknown")}) 
                         for a in md.get("actors", [])],
             )
         
@@ -119,7 +119,7 @@ class FFLogsClient:
         limit: int = 10000,
     ) -> tuple[List[Dict[str, Any]], Optional[int]]:
         query = """
-        query EventsData($code: String!, $fightId: Int!, $startTime: Int!, $endTime: Int!, $dataType: String!, $limit: Int!) {
+        query EventsData($code: String!, $fightId: Int!, $startTime: Float!, $endTime: Float!, $dataType: EventDataType!, $limit: Int!) {
             reportData {
                 report(code: $code) {
                     events(fightIDs: [$fightId], startTime: $startTime, endTime: $endTime, dataType: $dataType, limit: $limit) {
@@ -134,8 +134,8 @@ class FFLogsClient:
         variables = {
             "code": code,
             "fightId": fight_id,
-            "startTime": start_time,
-            "endTime": end_time,
+            "startTime": float(start_time),
+            "endTime": float(end_time),
             "dataType": data_type,
             "limit": limit,
         }
