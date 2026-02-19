@@ -135,8 +135,7 @@ class DamageEventExtractorAgent:
         boss_actor_ids: List[int],
         min_damage_threshold: int,
     ) -> List[DamageEvent]:
-        events: List[DamageEvent] = []
-        return events
+        return []
     
     def _build_occurrence_map(
         self,

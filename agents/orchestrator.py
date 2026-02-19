@@ -15,7 +15,6 @@ from schemas.youtube_schemas import YouTubeTranscript
 
 from agents.cactbot_agent import CactbotTimelineAgent
 from agents.fflogs_agent import FFLogsReportAgent
-from agents.damage_extractor_agent import DamageEventExtractorAgent
 from agents.variant_detector_agent import TimelineVariantDetectorAgent
 from agents.aggregator_agent import TimelineAggregatorAgent
 from agents.timeline_builder_agent import TimelineBuilderAgent
@@ -31,11 +30,10 @@ class TimelineGenerationOrchestrator:
     Pipeline:
     1. CactbotTimelineAgent - Fetch timeline from Cactbot (simple HTTP + regex, no LLM needed)
     2. FFLogsReportAgent - Discover and fetch reports from FFLogs (API client, no LLM needed)
-    3. DamageEventExtractorAgent - Extract damage events (rule-based, no LLM needed)
-    4. TimelineVariantDetectorAgent - Detect timeline variants (atomic agent with LLM)
-    5. TimelineAggregatorAgent - Aggregate damage values (atomic agent with LLM)
-    6. TranscriptEnrichmentOrchestrator - Enrich with YouTube descriptions (atomic agent with LLM)
-    7. TimelineBuilderAgent - Build final output (atomic agent with LLM)
+    3. TimelineVariantDetectorAgent - Detect timeline variants (atomic agent with LLM)
+    4. TimelineAggregatorAgent - Aggregate damage values (atomic agent with LLM)
+    5. TranscriptEnrichmentOrchestrator - Enrich with YouTube descriptions (atomic agent with LLM)
+    6. TimelineBuilderAgent - Build final output (atomic agent with LLM)
     """
     
     def __init__(
@@ -55,7 +53,6 @@ class TimelineGenerationOrchestrator:
         
         self.cactbot_agent = CactbotTimelineAgent()
         self.fflogs_agent = FFLogsReportAgent(client_id, client_secret)
-        self.damage_extractor = DamageEventExtractorAgent()
         self.variant_detector = TimelineVariantDetectorAgent()
         self.aggregator = TimelineAggregatorAgent()
         self.builder = TimelineBuilderAgent()
