@@ -1,4 +1,4 @@
-from typing import Optional, List, Dict, Any
+from typing import Optional, List, Dict, Any, Set
 import time as time_module
 import os
 
@@ -21,6 +21,7 @@ from agents.timeline_builder_agent import TimelineBuilderAgent
 from agents.transcript_enrichment_orchestrator import TranscriptEnrichmentOrchestrator
 
 from config import config
+from tools.statistics import normalize_action_name
 
 
 class TimelineGenerationOrchestrator:
@@ -117,6 +118,15 @@ class TimelineGenerationOrchestrator:
             
             timeline_entries = cactbot_result.timeline_entries
             
+            # Build set of normalized ability names from cactbot timeline for early filtering
+            cactbot_abilities: Set[str] = set()
+            if timeline_entries:
+                for entry in timeline_entries:
+                    # Use name or base_name for matching
+                    name_to_use = entry.base_name or entry.name
+                    if name_to_use:
+                        cactbot_abilities.add(normalize_action_name(name_to_use))
+            
             fflogs_input = FFLogsReportInput(
                 boss_id=request.boss_id,
                 encounter_id=encounter_id,
@@ -147,6 +157,7 @@ class TimelineGenerationOrchestrator:
                         events = self._extract_events_from_fight(
                             report,
                             fight,
+                            cactbot_abilities,
                         )
                         all_events.extend(events)
                     except Exception as e:
@@ -260,6 +271,7 @@ class TimelineGenerationOrchestrator:
         self,
         report,
         fight,
+        cactbot_abilities: Optional[Set[str]] = None,
     ) -> List[DamageEvent]:
         events: List[DamageEvent] = []
         
@@ -302,6 +314,12 @@ class TimelineGenerationOrchestrator:
                 
                 if self._is_auto_attack(ability_name):
                     continue
+                
+                # Filter using cactbot timeline as guide if available
+                if cactbot_abilities:
+                    normalized_name = normalize_action_name(ability_name)
+                    if normalized_name not in cactbot_abilities:
+                        continue
                 
                 relative_time = (raw_event["timestamp"] - fight.start_time) / 1000
                 if relative_time <= 0:
