@@ -1,5 +1,6 @@
 from typing import List, Dict, Any, Optional
 import json
+import re
 import time
 from pathlib import Path
 from schemas.timeline_schemas import (
@@ -35,6 +36,7 @@ class TimelineBuilderAgent:
         boss_name: str,
         output_format: str = "mitplan",
         fflogs_report_codes: Optional[List[str]] = None,
+        youtube_descriptions: Optional[Dict[str, str]] = None,
     ) -> TimelineOutput:
         """
         Build final timeline with all variants.
@@ -43,13 +45,19 @@ class TimelineBuilderAgent:
         
         actions = []
         
+        dodgeable_threshold = 0.3
+        youtube_descriptions = youtube_descriptions or {}
+        
         for agg_action in aggregated_actions:
+            if agg_action.report_ratio < dodgeable_threshold:
+                continue
+                
             variants = variant_map.get(
                 f"{agg_action.name}_{agg_action.occurrence}",
                 None
             )
             
-            boss_action = self._convert_to_boss_action(agg_action, variants)
+            boss_action = self._convert_to_boss_action(agg_action, variants, youtube_descriptions)
             actions.append(boss_action)
         
         default_action_ids = self._get_default_action_ids(variant_info)
@@ -60,11 +68,12 @@ class TimelineBuilderAgent:
         all_variants = self._build_all_variants_dict(variant_info)
         
         summary = TimelineSummary(
-            unique_abilities=len(set(a.name for a in aggregated_actions)),
-            total_events=len(aggregated_actions),
+            unique_abilities=len(set(a.name for a in actions)),
+            total_events=len(actions),
             reports_used=len(fflogs_report_codes) if fflogs_report_codes else 0,
-            tank_busters=sum(1 for a in aggregated_actions if a.is_tank_buster),
-            raidwides=len(aggregated_actions) - sum(1 for a in aggregated_actions if a.is_tank_buster),
+            tank_busters=sum(1 for a in actions if a.is_tank_buster),
+            raidwides=len(actions) - sum(1 for a in actions if a.is_tank_buster),
+            immediate_raidwides=sum(1 for a in actions if a.is_raidwide),
             variants_detected=len(variant_info.variant_points),
             default_coverage=variant_info.default_coverage,
         )
@@ -87,16 +96,32 @@ class TimelineBuilderAgent:
         self,
         agg_action: AggregatedAction,
         variants: Optional[List[str]],
+        youtube_descriptions: Optional[Dict[str, str]] = None,
     ) -> BossAction:
         icon = self._get_icon(agg_action.name, agg_action.is_tank_buster)
         
-        description = self._generate_description(
-            agg_action.name,
-            agg_action.is_tank_buster,
-            agg_action.is_dual_tank_buster,
-            agg_action.damage_type,
-            agg_action.hit_count,
-        )
+        youtube_descriptions = youtube_descriptions or {}
+        name_key = agg_action.name.lower()
+        
+        description = None
+        
+        for key_variant in [
+            name_key,
+            name_key.replace(" ", "_"),
+            "".join(c for c in name_key if c.isalnum()),
+        ]:
+            if key_variant in youtube_descriptions and youtube_descriptions[key_variant]:
+                description = youtube_descriptions[key_variant]
+                break
+        
+        if not description:
+            description = self._generate_description(
+                agg_action.name,
+                agg_action.is_tank_buster,
+                agg_action.is_dual_tank_buster,
+                agg_action.damage_type,
+                agg_action.hit_count,
+            )
         
         return BossAction(
             id=agg_action.id,
@@ -109,10 +134,12 @@ class TimelineBuilderAgent:
             icon=icon,
             is_tank_buster=agg_action.is_tank_buster,
             is_dual_tank_buster=agg_action.is_dual_tank_buster,
+            is_raidwide=agg_action.is_raidwide,
             hit_count=agg_action.hit_count,
             per_hit_damage=agg_action.per_hit_damage,
             tags=None,
             variants=variants,
+            time_range=agg_action.time_range,
         )
     
     def _build_variant_map(
@@ -224,10 +251,14 @@ class TimelineBuilderAgent:
         else:
             parts.append("damage mechanic.")
         
-        if damage_type and parts:
-            parts[-1] = f"{damage_type} {parts[-1]}"
-        
         result = " ".join(parts).replace("  ", " ").strip()
+        
+        if damage_type and damage_type not in result.lower():
+            if result.endswith("."):
+                result = result[:-1] + f" ({damage_type})."
+            else:
+                result = f"{result} ({damage_type})."
+        
         return result[0].upper() + result[1:] if result else ""
     
     def write_output(
@@ -246,6 +277,7 @@ class TimelineBuilderAgent:
                     "id": a.id,
                     "name": a.name,
                     "time": a.time,
+                    "timeRange": f"{a.time_range[0]}-{a.time_range[1]}" if a.time_range else None,
                     "description": a.description,
                     "unmitigatedDamage": a.unmitigated_damage,
                     "damageType": a.damage_type,
@@ -253,6 +285,7 @@ class TimelineBuilderAgent:
                     "icon": a.icon,
                     "isTankBuster": a.is_tank_buster,
                     "isDualTankBuster": a.is_dual_tank_buster,
+                    "isRaidwide": a.is_raidwide,
                     "hitCount": a.hit_count,
                     "perHitDamage": a.per_hit_damage,
                     "variants": a.variants,

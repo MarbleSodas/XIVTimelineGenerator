@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from typing import Optional, List, Any
 
 
@@ -8,21 +8,25 @@ class FFLogsFight(BaseModel):
     name: str
     start_time: int
     end_time: int
-    kill: bool
+    kill: Optional[bool] = None
     duration: Optional[int] = None
     difficulty: Optional[int] = None
 
 
 class FFLogsAbility(BaseModel):
-    game_id: int
+    game_id: int = Field(alias="gameID")
     name: str
     type: int
+    
+    model_config = {"populate_by_name": True}
 
 
 class FFLogsActor(BaseModel):
     id: int
     name: str
-    actor_type: str
+    actor_type: str = Field(alias="type")
+    
+    model_config = {"populate_by_name": True}
 
 
 class FFLogsMasterData(BaseModel):

@@ -127,13 +127,24 @@ class CactbotTimelineAgent:
             duration_match = re.search(r"duration\s+(\d+\.?\d*)", after_name, re.IGNORECASE)
             duration = float(duration_match.group(1)) if duration_match else None
             
+            if hit_count is None and duration is not None:
+                hit_count = self._infer_hit_count_from_duration(duration)
+            
             window_match = re.search(r"window\s+(\d+\.?\d*)", after_name, re.IGNORECASE)
             window = float(window_match.group(1)) if window_match else None
             
             original_name = name
-            if "(cast)" in name.lower():
-                original_name = name
-                name = re.sub(r"\s*\(cast\)\s*$", "", name, flags=re.IGNORECASE).strip()
+            name, cast_suffix = self._extract_cast_suffix(name)
+            if cast_suffix:
+                original_name = f"{name} ({cast_suffix})"
+            
+            base_name, variants = self._extract_variants(name)
+            if base_name is None:
+                base_name = name
+            if cast_suffix and variants:
+                variants = variants + [cast_suffix]
+            elif cast_suffix:
+                variants = [cast_suffix]
             
             entries.append(
                 CactbotTimelineEntry(
@@ -145,6 +156,8 @@ class CactbotTimelineAgent:
                     duration=duration,
                     window=window,
                     is_commented=is_commented,
+                    base_name=base_name if base_name else None,
+                    variants=variants,
                 )
             )
         
@@ -189,6 +202,54 @@ class CactbotTimelineAgent:
             return any(re.search(p, name, re.IGNORECASE) for p in dodgeable_patterns)
         
         return False
+    
+    def _extract_variants(self, name: str) -> tuple[str, Optional[List[str]]]:
+        variants = None
+        base_name = name
+        
+        if "/" in name:
+            parts = [p.strip() for p in name.split("/")]
+            if len(parts) > 1:
+                variants = parts
+                base_name = parts[0]
+        
+        else:
+            hit_count_match = re.match(r"^(.+?)\s+x(\d+)$", name, re.IGNORECASE)
+            if hit_count_match:
+                base_name = hit_count_match.group(1).strip()
+            
+            else:
+                numbered_match = re.match(r"^(.+?)\s+(\d+)$", name)
+                if numbered_match:
+                    base_name = numbered_match.group(1).strip()
+                    num = numbered_match.group(2)
+                    variants = [num]
+                
+                else:
+                    suffix_match = re.match(r"^(.+?)\s*\(([^)]+)\)$", name)
+                    if suffix_match:
+                        base_name = suffix_match.group(1).strip()
+                        suffix = suffix_match.group(2)
+                        if suffix:
+                            variants = [suffix]
+        
+        return base_name, variants
+    
+    def _extract_cast_suffix(self, name: str) -> tuple[str, Optional[str]]:
+        cast_match = re.search(r"\s*\((cast)\)\s*$", name, re.IGNORECASE)
+        if cast_match:
+            cleaned = re.sub(r"\s*\(cast\)\s*$", "", name, flags=re.IGNORECASE).strip()
+            return cleaned, "cast"
+        return name, None
+    
+    def _infer_hit_count_from_duration(self, duration: float) -> Optional[int]:
+        if duration <= 0:
+            return None
+        avg_hit_interval = 0.86
+        inferred = round(duration / avg_hit_interval)
+        if 2 <= inferred <= 10:
+            return inferred
+        return None
     
     def close(self):
         self.client.close()

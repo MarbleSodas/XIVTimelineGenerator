@@ -11,6 +11,8 @@ class CactbotTimelineEntry(BaseModel):
     duration: Optional[float] = None
     window: Optional[float] = None
     is_commented: bool = False
+    base_name: Optional[str] = None
+    variants: Optional[List[str]] = None
 
 
 class CactbotTimelineInput(BaseModel):

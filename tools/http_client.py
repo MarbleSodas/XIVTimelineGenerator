@@ -4,19 +4,17 @@ from typing import Optional
 
 class HTTPClient:
     def __init__(self, base_url: Optional[str] = None, timeout: float = 30.0):
-        self._base_url = base_url
+        self._base_url = base_url if base_url else None
         self.timeout = timeout
         self._client: Optional[httpx.Client] = None
     
     @property
     def client(self) -> httpx.Client:
         if self._client is None:
-            base = self._base_url if self._base_url is not None else None
-            self._client = httpx.Client(
-                base_url=base,
-                timeout=self.timeout,
-                follow_redirects=True,
-            )
+            kwargs = {"timeout": self.timeout, "follow_redirects": True}
+            if self._base_url:
+                kwargs["base_url"] = self._base_url
+            self._client = httpx.Client(**kwargs)
         return self._client
     
     def get(self, url: str, **kwargs) -> httpx.Response:
@@ -39,19 +37,17 @@ class HTTPClient:
 
 class AsyncHTTPClient:
     def __init__(self, base_url: Optional[str] = None, timeout: float = 30.0):
-        self._base_url = base_url
+        self._base_url = base_url if base_url else None
         self.timeout = timeout
         self._client: Optional[httpx.AsyncClient] = None
     
     @property
     async def client(self) -> httpx.AsyncClient:
         if self._client is None:
-            base = self._base_url if self._base_url is not None else None
-            self._client = httpx.AsyncClient(
-                base_url=base,
-                timeout=self.timeout,
-                follow_redirects=True,
-            )
+            kwargs = {"timeout": self.timeout, "follow_redirects": True}
+            if self._base_url:
+                kwargs["base_url"] = self._base_url
+            self._client = httpx.AsyncClient(**kwargs)
         return self._client
     
     async def get(self, url: str, **kwargs) -> httpx.Response:

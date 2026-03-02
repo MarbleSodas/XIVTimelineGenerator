@@ -29,7 +29,7 @@ class CactbotTimelineEntry:
 class AggregatedAction:
     def __init__(self, id, name, time, occurrence, unmitigated_damage, damage_type=None,
                  target_count_median=8, importance="medium", is_tank_buster=False, 
-                 is_dual_tank_buster=False, hit_count=None):
+                 is_dual_tank_buster=False, hit_count=None, report_ratio=1.0):
         self.id = id
         self.name = name
         self.time = time
@@ -41,6 +41,7 @@ class AggregatedAction:
         self.is_tank_buster = is_tank_buster
         self.is_dual_tank_buster = is_dual_tank_buster
         self.hit_count = hit_count
+        self.report_ratio = report_ratio
 
 
 class DamageThresholds:
@@ -167,7 +168,7 @@ def cluster_occurrences(events_by_action, gap_seconds):
                 "action_name": action_name,
                 "occurrence": cluster_idx + 1,
                 "times": cluster["values"],
-                "median_time": cluster["median"],
+                "time": cluster["min"],
                 "median_damage": median(damages) if damages else 0,
                 "damage_type": get_most_common(damage_types),
                 "target_count_median": len(target_ids),
@@ -175,7 +176,7 @@ def cluster_occurrences(events_by_action, gap_seconds):
                 "hit_count": len(cluster_events),
             })
     
-    return sorted(occurrences, key=lambda o: o["median_time"])
+    return sorted(occurrences, key=lambda o: o["time"])
 
 
 def create_aggregated_action(occurrence, thresholds):
@@ -203,7 +204,7 @@ def create_aggregated_action(occurrence, thresholds):
     return AggregatedAction(
         id=action_id,
         name=name.title(),
-        time=round(occurrence["median_time"], 1),
+        time=round(occurrence["time"], 1),
         occurrence=occurrence["occurrence"],
         unmitigated_damage=f"~{int(damage):,}" if damage >= 1000 else str(int(damage)),
         damage_type=damage_type,

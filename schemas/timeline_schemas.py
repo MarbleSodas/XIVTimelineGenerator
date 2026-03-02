@@ -13,10 +13,12 @@ class BossAction(BaseModel):
     icon: Optional[str] = None
     is_tank_buster: bool = False
     is_dual_tank_buster: bool = False
+    is_raidwide: bool = False
     hit_count: Optional[int] = None
     per_hit_damage: Optional[str] = None
     tags: Optional[List[str]] = None
     variants: Optional[List[str]] = None
+    time_range: Optional[tuple] = None
 
 
 class TimelineSummary(BaseModel):
@@ -25,6 +27,7 @@ class TimelineSummary(BaseModel):
     reports_used: int
     tank_busters: int
     raidwides: int
+    immediate_raidwides: int
     variants_detected: int
     default_coverage: float
 
@@ -60,6 +63,8 @@ class TimelineGenerationRequest(BaseModel):
     dodgeable_threshold: float = 0.7
     fflogs_client_id: str = ""
     fflogs_client_secret: str = ""
+    youtube_video_ids: List[str] = []
+    enable_transcript_enrichment: bool = True
 
 
 class TimelineGenerationResult(BaseModel):

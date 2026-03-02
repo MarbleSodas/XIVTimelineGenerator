@@ -16,8 +16,11 @@ class AggregatedAction(BaseModel):
     importance: str = "medium"
     is_tank_buster: bool = False
     is_dual_tank_buster: bool = False
+    is_raidwide: bool = False
     hit_rate: Optional[float] = None
     confidence: Optional[float] = None
+    time_range: Optional[tuple[float, float]] = None
+    report_ratio: float = 1.0
 
 
 class DamageThresholds(BaseModel):
@@ -39,3 +42,4 @@ class AggregationOutput(BaseModel):
     damage_thresholds: DamageThresholds
     tank_buster_count: int = 0
     raidwide_count: int = 0
+    immediate_raidwide_count: int = 0
