@@ -43,6 +43,10 @@ class TimelineSynthesizer:
         # Calculate confidence based on available data
         confidence = self._calculate_confidence(cactbot_data, guide_data)
 
+        # Extract multi-hit abilities from entries
+        entries = cactbot_data.get("entries", [])
+        multi_hit_abilities = self._extract_multi_hit_abilities(entries)
+
         return {
             "boss_name": boss_name,
             "expansion": cactbot_data.get("expansion"),
@@ -57,6 +61,7 @@ class TimelineSynthesizer:
                 "cactbot": cactbot_data.get("source_url"),
                 "guides": self._get_guide_sources(guide_data),
             },
+            "multi_hit_abilities": multi_hit_abilities,
         }
 
     def _enhance_phases(
@@ -191,6 +196,27 @@ class TimelineSynthesizer:
             notes.append("Contains tank busters - coordinate cooldowns")
 
         return notes
+
+    def _extract_multi_hit_abilities(self, entries):
+        """Extract abilities that hit multiple times."""
+        multi_hit = []
+        seen = set()
+        
+        for entry in entries:
+            if entry.get("is_multi_hit", False):
+                ability_name = entry.get("ability_name", "")
+                if ability_name not in seen:
+                    seen.add(ability_name)
+                    multi_hit.append({
+                        "ability_name": ability_name,
+                        "hit_count": entry.get("hit_count", 1),
+                        "first_timestamp": entry.get("first_timestamp", entry.get("timestamp")),
+                        "last_timestamp": entry.get("last_timestamp", entry.get("timestamp")),
+                        "time_span": entry.get("time_span", 0),
+                        "target_type": entry.get("target_type", "unknown"),
+                    })
+        
+        return multi_hit
 
     def _calculate_confidence(
         self,

@@ -35,6 +35,16 @@ class TimelineVariation(BaseModel):
     type: str
 
 
+class AbilityTargetInfo(BaseModel):
+    """Information about a boss ability's target and hit count."""
+
+    ability_name: str
+    target_type: str  # e.g., "raidwide", "single_tank", "pair", "random"
+    hit_count: int
+    target_name: str | None = None  # Specific target if known
+    notes: str | None = None
+
+
 class SynthesizedTimeline(BaseModel):
     """Complete synthesized timeline for a boss."""
 
@@ -48,10 +58,23 @@ class SynthesizedTimeline(BaseModel):
     confidence: float
     generated_at: str
     sources: dict[str, Any]
+    # New multi-hit and target info fields
+    ability_targets: list[AbilityTargetInfo] = []
+    multi_hit_abilities: list[dict[str, Any]] = []
 
 
 # Agent dependencies
 class AgentDeps:
+    """Dependencies for the timeline agent."""
+
+    def __init__(self, cactbot_client: "CactbotClient", guide_scraper: "GuideScraper", synthesizer: "TimelineSynthesizer"):
+        self.cactbot_client = cactbot_client
+        self.guide_scraper = guide_scraper
+        self.synthesizer = synthesizer
+
+    cactbot_client: "CactbotClient"
+    guide_scraper: "GuideScraper"
+    synthesizer: "TimelineSynthesizer"
     """Dependencies for the timeline agent."""
 
     cactbot_client: CactbotClient
@@ -89,6 +112,7 @@ strategy guides from popular websites like Icy Veins and Hardcore Gamer.
 You have access to tools that can:
 1. Fetch raw timeline data from cactbot GitHub repository
 2. Scrape boss guides from Icy Veins and Hardcore Gamer
+3. Research boss ability targets and hit counts
 
 When generating timelines:
 - Parse the cactbot timeline entries carefully
@@ -195,6 +219,59 @@ async def synthesize_timeline(
     return ctx.deps.synthesizer.synthesize(cactbot_data, guide_data)
 
 
+async def research_ability_targets(
+    boss_name: str,
+    abilities: list[dict[str, Any]],
+    guide_data: dict[str, Any],
+) -> list[dict[str, Any]]:
+    """Research target information for boss abilities."""
+    from xiv_timeline.models import infer_target_type, TargetType
+    
+    target_info = []
+    
+    # Get unique ability names
+    unique_abilities = {}
+    for ability in abilities:
+        name = ability.get("ability_name", "")
+        if name not in unique_abilities:
+            unique_abilities[name] = ability
+    
+    # Extract target info from guide data
+    guides = guide_data.get("guides", {})
+    icyveins = guides.get("icy-veins", {}).get("content", {})
+    
+    # Build target info for each unique ability
+    for ability_name, ability in unique_abilities.items():
+        # Start with inference from ability name
+        target_type = infer_target_type(ability_name)
+        
+        # Check guide content for specific mechanics
+        notes = []
+        
+        # Look through guide content for mentions of this ability
+        guide_content = str(icyveins.get("overview", ""))
+        if ability_name.lower() in guide_content.lower():
+            notes.append("Found in guide overview")
+        
+        # Look through phase content
+        for phase in icyveins.get("phases", []):
+            phase_content = str(phase.get("content", ""))
+            if ability_name.lower() in phase_content.lower():
+                notes.append(f"Found in {phase.get('title', 'phase')} section")
+        
+        info = {
+            "ability_name": ability_name,
+            "target_type": target_type.value if target_type else TargetType.UNKNOWN.value,
+            "hit_count": ability.get("hit_count", 1),
+            "is_multi_hit": ability.get("is_multi_hit", False),
+            "target_name": ability.get("target"),
+            "notes": "; ".join(notes) if notes else None,
+        }
+        target_info.append(info)
+    
+    return target_info
+
+
 # Register tools with the agent
 _agent = get_agent()
 
@@ -264,6 +341,22 @@ async def run_timeline_generation(
 
         # Synthesize
         synthesized = synthesizer.synthesize(cactbot_data, guide_data)
+        
+        # Research ability targets and hit counts
+        ability_targets = await research_ability_targets(
+            boss_name,
+            cactbot_data.get("entries", []),
+            guide_data,
+        )
+        
+        # Add ability targets to synthesized data
+        synthesized["ability_targets"] = ability_targets
+        
+        # Extract multi-hit abilities
+        multi_hit_abilities = [
+            at for at in ability_targets if at.get("is_multi_hit", False)
+        ]
+        synthesized["multi_hit_abilities"] = multi_hit_abilities
 
         # Generate cactbot export
         cactbot_export = synthesizer.generate_cactbot_export(synthesized)

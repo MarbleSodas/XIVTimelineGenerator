@@ -15,6 +15,8 @@ from xiv_timeline.models import (
     Difficulty,
     resolve_boss_name,
     BOSS_NAME_MAPPING,
+    infer_target_type,
+    MULTI_HIT_TIME_THRESHOLD,
 )
 
 
@@ -198,6 +200,10 @@ class CactbotClient:
                     "source": source_match.group(1) if source_match else None,
                     "duration": float(duration_match.group(1)) if duration_match else None,
                     "raw_line": line,
+                    # Multi-hit fields (will be populated after grouping)
+                    "hit_count": 1,
+                    "is_multi_hit": False,
+                    "target_type": infer_target_type(ability_name).value if infer_target_type(ability_name) else "unknown",
                 }
 
                 entries.append(entry)
@@ -207,10 +213,99 @@ class CactbotClient:
         if current_phase["entries"]:
             phases.append(current_phase)
 
+        # Group consecutive same-name abilities within time threshold
+        entries = self._group_consecutive_abilities(entries)
+        
+        # Update phases with grouped entries
+        if current_phase["entries"]:
+            phases.append(current_phase)
+        
+        # Rebuild phases with grouped entries
+        phases = self._rebuild_phases_with_grouped_entries(phases, entries)
+
         return {
             "entries": entries,
             "phases": phases,
         }
+
+    def _group_consecutive_abilities(self, entries):
+        """Group consecutive same-name abilities within the time threshold."""
+        if not entries:
+            return entries
+        
+        grouped = []
+        current_group = [entries[0]]
+        
+        for i in range(1, len(entries)):
+            current = entries[i]
+            prev = current_group[-1]
+            
+            # Check if same ability name
+            if current["ability_name"] == prev["ability_name"]:
+                # Check if within time threshold
+                time_diff = current["timestamp"] - prev["timestamp"]
+                if time_diff <= MULTI_HIT_TIME_THRESHOLD:
+                    current_group.append(current)
+                else:
+                    # Time threshold exceeded, finalize current group
+                    grouped.extend(self._create_grouped_entry(current_group))
+                    current_group = [current]
+            else:
+                # Different ability, finalize current group
+                grouped.extend(self._create_grouped_entry(current_group))
+                current_group = [current]
+        
+        # Final group
+        if current_group:
+            grouped.extend(self._create_grouped_entry(current_group))
+        
+        return grouped
+
+    def _create_grouped_entry(self, group):
+        """Create grouped entry from a list of consecutive same-name abilities."""
+        if len(group) == 1:
+            return group
+        
+        # Mark all entries in group as multi-hit
+        hit_count = len(group)
+        first_entry = group[0]
+        last_entry = group[-1]
+        
+        for entry in group:
+            entry["hit_count"] = hit_count
+            entry["is_multi_hit"] = True
+            entry["first_timestamp"] = first_entry["timestamp"]
+            entry["last_timestamp"] = last_entry["timestamp"]
+            entry["time_span"] = last_entry["timestamp"] - first_entry["timestamp"]
+        
+        return group
+
+    def _rebuild_phases_with_grouped_entries(self, original_phases, grouped_entries):
+        """Rebuild phases with grouped entries while preserving phase structure."""
+        if not grouped_entries:
+            return original_phases
+        
+        # Get all entry timestamps
+        entry_timestamps = [(e["timestamp"], e) for e in grouped_entries]
+        
+        # Rebuild phases
+        new_phases = []
+        for phase in original_phases:
+            phase_start = phase.get("start_time", 0)
+            phase_end = phase.get("end_time", float("inf"))
+            
+            # Filter entries that fall within this phase
+            phase_entries = [
+                e for ts, e in entry_timestamps 
+                if phase_start <= ts <= phase_end or (phase_start == 0 and ts <= phase_end)
+            ]
+            
+            if phase_entries:
+                new_phase = phase.copy()
+                new_phase["entries"] = phase_entries
+                new_phases.append(new_phase)
+        
+        return new_phases
 
     async def fetch_boss_list(self) -> list[str]:
         """Fetch a list of all available boss IDs."""
