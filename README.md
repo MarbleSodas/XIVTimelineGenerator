@@ -1,6 +1,6 @@
 # XIV Timeline Generator
 
-AI-powered FFXIV boss timeline generator using Pydantic AI with MiniMax M2.5 support.
+AI-powered FFXIV boss timeline generator using LangGraph with MiniMax M2.5 support.
 
 ## Quick Start
 
@@ -20,7 +20,6 @@ python3 run.py interactive
 
 # Generate timeline for specific boss directly
 python3 run.py generate p12s
-python3 run.py generate p12s --tui
 
 # List all available bosses
 python3 run.py list-bosses
@@ -64,29 +63,6 @@ Use arrow keys to navigate, Enter to select, Q to quit. After generating a timel
 - **Output Formats**: JSON and Cactbot-compatible timeline text
 - **Caching**: Local 7-day cache for cactbot data
 
-## TUI Mode
-
-The TUI mode provides real-time observability into the timeline generation process during direct boss generation:
-
-```
-┌─ XIV Timeline Generator - p12s ──────────────────────────────┐
-│                                                            │
-│  ● Fetching cactbot data...                               │
-│  ○ Scraping Icy Veins guide                               │
-│  ○ Scraping Hardcore Gamer guide                           │
-│  ○ Processing timeline entries                             │
-│  ○ Extracting phases and variations                        │
-│  ○ Generating output files                                 │
-│                                                            │
-└────────────────────────────────────────────────────────────┘
-```
-
-Use `--tui` or `-u` flag with `generate` command:
-```bash
-python3 run.py generate p12s --tui
-python3 run.py generate zodiark -u
-```
-
 ## CLI Options
 
 ```bash
@@ -111,7 +87,6 @@ python3 run.py --help
 - `--type, -t`: Encounter type (raid, trial, ultimate)
 - `--difficulty, -d`: Difficulty (n, s, u)
 - `--output, -o`: Output directory (default: ./output)
-- `--tui`: Enable TUI mode for observability
 - `--verbose, -v`: Verbose output
 
 Note: All CLI examples use `python3 run.py` as the entry point. Alternatively, you can install the package with `pip install -e .` and use `xiv-timeline` directly.
@@ -129,7 +104,7 @@ The tool supports all FFXIV raids, trials, and ultimates from A Realm Reborn to 
 ## Requirements
 
 - Python 3.11+
-- Minimax API key (or OpenAI-compatible API)
+- Minimax API key (or any OpenAI-compatible API)
 
 ## Environment Variables
 
@@ -138,6 +113,38 @@ MINIMAX_API_KEY=your-api-key-here
 MINIMAX_BASE_URL=https://api.minimax.chat/v1
 MINIMAX_MODEL=MiniMax-M2.5
 ```
+
+## Observability & Debugging
+
+### Verbose Logging
+
+Pass `--verbose` / `-v` to see per-node timing, data sizes, and LLM call details:
+
+```bash
+python3 run.py generate p12s -v
+```
+
+Example output:
+```
+[fetch_cactbot] Starting — boss=p12s, expansion=06-ew
+[fetch_cactbot] Done in 0.42s — 87 entries, 3 phases
+[fetch_guides]  Done in 1.13s — succeeded: ['icy-veins'], failed: ['hardcore-gamer']
+[synthesize]    LLM call succeeded in 2.31s — 3 phases returned
+[research_targets] Done in 0.01s — 45 abilities analyzed, 2 multi-hit
+[export]        Done in 0.00s — 2847 chars of export text
+```
+
+### LangSmith Tracing
+
+For full production-grade observability (traces, LLM call inspection, cost tracking), enable [LangSmith](https://smith.langchain.com):
+
+```bash
+# Add to your .env file:
+LANGSMITH_API_KEY=your-langsmith-api-key
+LANGSMITH_PROJECT=xiv-timeline-generator   # optional, defaults to this
+```
+
+When enabled, every graph node execution, LLM call (including inputs/outputs/tokens), and state transition is automatically traced and viewable in the LangSmith dashboard.
 
 ## Output
 
@@ -153,11 +160,34 @@ Generated timelines include:
 CLI/TUI
     │
     ▼
-Agent (Pydantic AI + MiniMax M2.5)
+LangGraph StateGraph (5-node pipeline)
     │
-    ├─► CactbotClient ──────► GitHub (timeline data)
+    ├─► fetch_cactbot ─────► GitHub (timeline data)
     │
-    ├─► GuideScraper ───────► Icy Veins / Hardcore Gamer
+    ├─► fetch_guides ──────► Icy Veins / Hardcore Gamer
     │
-    └─► TimelineSynthesizer ─► Merged output (JSON + Cactbot)
+    ├─► synthesize ────────► LLM (MiniMax M2.5) + local synthesis
+    │
+    ├─► research_targets ──► Ability target inference
+    │
+    └─► export ────────────► Cactbot-compatible timeline text
+```
+
+The core generation pipeline is a LangGraph `StateGraph` that:
+1. Fetches raw cactbot timeline data from GitHub.
+2. Scrapes strategy guides from Icy Veins and Hardcore Gamer.
+3. Uses the LLM to synthesize a structured timeline (with local fallback).
+4. Researches ability targets and multi-hit info.
+5. Outputs the final structured JSON and Cactbot export texts.
+
+## Development & Testing
+
+If you want to contribute or run the automated tests, install the package with development dependencies and run `pytest`:
+
+```bash
+# Install development dependencies
+pip3 install -e ".[dev]"
+
+# Run tests
+python3 -m pytest tests/ -v
 ```

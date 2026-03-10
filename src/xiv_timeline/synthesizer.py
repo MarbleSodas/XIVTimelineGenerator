@@ -1,51 +1,27 @@
-"""Timeline synthesizer - merges cactbot data with guide information."""
+"""Timeline synthesizer — merges cactbot data with guide information."""
 
-import re
 from datetime import datetime
 from typing import Any
 
 
 class TimelineSynthesizer:
-    """Synthesizes enriched timeline from cactbot data and guide content."""
-
-    def __init__(self):
-        """Initialize the synthesizer."""
-        pass
+    """Produces an enriched timeline from cactbot data and guide content."""
 
     def synthesize(
         self,
         cactbot_data: dict[str, Any],
         guide_data: dict[str, Any],
     ) -> dict[str, Any]:
-        """
-        Synthesize timeline data with guide information.
+        """Synthesize timeline data with guide information.
 
-        Args:
-            cactbot_data: Raw timeline data from cactbot
-            guide_data: Guide content from various sources
-
-        Returns:
-            Synthesized timeline with phases, variations, and notes
+        Returns a simplified timeline dict with phases, notes, and confidence.
         """
         boss_name = cactbot_data["boss_name"]
-        entries = cactbot_data.get("entries", [])
         phases = cactbot_data.get("phases", [])
 
-        # Build enhanced phases with guide context
-        enhanced_phases = self._enhance_phases(phases, guide_data)
-
-        # Extract variations from guides
-        variations = self._extract_variations(guide_data)
-
-        # Generate notes
+        enhanced_phases = self._build_phases(phases, guide_data)
         notes = self._generate_notes(cactbot_data, guide_data)
-
-        # Calculate confidence based on available data
         confidence = self._calculate_confidence(cactbot_data, guide_data)
-
-        # Extract multi-hit abilities from entries
-        entries = cactbot_data.get("entries", [])
-        multi_hit_abilities = self._extract_multi_hit_abilities(entries)
 
         return {
             "boss_name": boss_name,
@@ -53,103 +29,64 @@ class TimelineSynthesizer:
             "encounter_type": cactbot_data.get("encounter_type"),
             "difficulty": cactbot_data.get("difficulty"),
             "phases": enhanced_phases,
-            "variations": variations,
             "notes": notes,
             "confidence": confidence,
             "generated_at": datetime.now().isoformat(),
-            "sources": {
-                "cactbot": cactbot_data.get("source_url"),
-                "guides": self._get_guide_sources(guide_data),
-            },
-            "multi_hit_abilities": multi_hit_abilities,
         }
 
-    def _enhance_phases(
+    # ------------------------------------------------------------------
+    # Phase building
+    # ------------------------------------------------------------------
+
+    def _build_phases(
         self,
         phases: list[dict[str, Any]],
         guide_data: dict[str, Any],
     ) -> list[dict[str, Any]]:
-        """Enhance phase data with guide context."""
-        enhanced = []
+        """Build phase dicts with entries and guide-sourced tips."""
+        result: list[dict[str, Any]] = []
+
+        guide_phases = (
+            guide_data
+            .get("guides", {})
+            .get("icy-veins", {})
+            .get("content", {})
+            .get("phases", [])
+        )
 
         for phase in phases:
-            phase_name = phase.get("name", f"Phase {len(enhanced) + 1}")
-            phase_entries = phase.get("entries", [])
+            phase_name = phase.get("name", f"Phase {len(result) + 1}")
+            entries = phase.get("entries", [])
+            entries = [e for e in entries if e.get("ability_name") != "--sync--"]
 
-            # Find matching guide content
-            guide_phases = guide_data.get("guides", {}).get("icy-veins", {}).get("content", {}).get("phases", [])
+            if not entries:
+                continue
 
-            # Look for phase-specific tips
-            phase_tips = []
-            for guide_phase in guide_phases:
-                if phase_name.lower() in guide_phase.get("title", "").lower():
-                    phase_tips.append(guide_phase.get("content", ""))
+            first_ts = entries[0]["timestamp"]
+            last_ts = entries[-1]["timestamp"]
 
-            # Get first and last ability times
-            first_ability = phase_entries[0] if phase_entries else None
-            last_ability = phase_entries[-1] if phase_entries else None
-            duration = None
-            if first_ability and last_ability:
-                duration = last_ability["timestamp"] - first_ability["timestamp"]
+            # Match guide tips by phase name
+            tips: list[str] = []
+            for gp in guide_phases:
+                if phase_name.lower() in gp.get("title", "").lower():
+                    if gp.get("tips"):
+                        tips.extend(gp["tips"])
+                    elif gp.get("content"):
+                        tips.append(gp["content"])
 
-            enhanced.append({
+            result.append({
                 "name": phase_name,
-                "start_time": first_ability["timestamp"] if first_ability else 0.0,
-                "end_time": last_ability["timestamp"] if last_ability else 0.0,
-                "duration": duration,
-                "ability_count": len(phase_entries),
-                "abilities": phase_entries,
-                "tips": phase_tips,
+                "start_time": first_ts,
+                "end_time": last_ts,
+                "entries": entries,
+                "tips": tips,
             })
 
-        return enhanced
+        return result
 
-    def _extract_variations(self, guide_data: dict[str, Any]) -> list[dict[str, Any]]:
-        """Extract phase skips and variations from guide content."""
-        variations = []
-
-        guides = guide_data.get("guides", {})
-
-        # Check Icy Veins for variations
-        icyveins = guides.get("icy-veins", {})
-        if icyveins.get("success"):
-            content = icyveins.get("content", {})
-            for variation in content.get("variations", []):
-                variations.append({
-                    "source": "icy-veins",
-                    "title": variation.get("title", ""),
-                    "description": variation.get("description", ""),
-                    "type": self._classify_variation(variation.get("description", "")),
-                })
-
-        # Check Hardcore Gamer
-        hardcore = guides.get("hardcore-gamer", {})
-        if hardcore.get("success"):
-            content = hardcore.get("content", {})
-            for variation in content.get("variations", []):
-                variations.append({
-                    "source": "hardcore-gamer",
-                    "title": variation.get("title", ""),
-                    "description": variation.get("description", ""),
-                    "type": self._classify_variation(variation.get("description", "")),
-                })
-
-        return variations
-
-    def _classify_variation(self, description: str) -> str:
-        """Classify the type of variation."""
-        desc_lower = description.lower()
-
-        if any(kw in desc_lower for kw in ["skip", "skipped"]):
-            return "phase_skip"
-        elif any(kw in desc_lower for kw in ["timing", "faster", "slower", "delay"]):
-            return "timing"
-        elif any(kw in desc_lower for kw in ["alternative", "different", "variant"]):
-            return "strategy"
-        elif any(kw in desc_lower for kw in ["enrage", " DPS", "kill"]):
-            return "enrage_timing"
-        else:
-            return "general"
+    # ------------------------------------------------------------------
+    # Notes
+    # ------------------------------------------------------------------
 
     def _generate_notes(
         self,
@@ -157,171 +94,132 @@ class TimelineSynthesizer:
         guide_data: dict[str, Any],
     ) -> list[str]:
         """Generate useful notes about the timeline."""
-        notes = []
-
         entries = cactbot_data.get("entries", [])
         if not entries:
             return ["No timeline entries found"]
 
-        # Get overall timeline duration
-        first_entry = entries[0]
-        last_entry = entries[-1]
-        total_duration = last_entry["timestamp"] - first_entry["timestamp"]
+        notes: list[str] = []
 
-        notes.append(f"Total timeline duration: ~{total_duration:.0f} seconds ({total_duration/60:.1f} minutes)")
+        total_duration = entries[-1]["timestamp"] - entries[0]["timestamp"]
+        notes.append(
+            f"Total timeline duration: ~{total_duration:.0f}s "
+            f"({total_duration / 60:.1f} min)"
+        )
 
-        # Check for phase transitions
         phases = cactbot_data.get("phases", [])
         if len(phases) > 1:
             notes.append(f"Contains {len(phases)} phases")
 
-        # Extract notable mechanics from guide
-        guides = guide_data.get("guides", {})
-        icyveins = guides.get("icy-veins", {})
-
-        if icyveins.get("success"):
-            content = icyveins.get("content", {})
-            overview = content.get("overview", "")
-            if overview:
-                # Extract first few sentences
-                sentences = overview.split(".")
-                if sentences:
-                    notes.append(f"Overview: {sentences[0][:200]}...")
-
-        # Add common notes based on mechanics
-        ability_names = [e["ability_name"] for e in entries]
-        if any("Ultima" in name for name in ability_names):
-            notes.append("Contains Ultima/Enrage cast - plan for DPS check")
-        if any("Tank" in name or "Buster" in name for name in ability_names):
-            notes.append("Contains tank busters - coordinate cooldowns")
+        # Pull overview from guide if available
+        guide_content = (
+            guide_data
+            .get("guides", {})
+            .get("icy-veins", {})
+            .get("content", {})
+        )
+        overview = guide_content.get("overview", "")
+        if overview:
+            first_sentence = overview.split(".")[0][:200]
+            notes.append(f"Overview: {first_sentence}...")
 
         return notes
 
-    def _extract_multi_hit_abilities(self, entries):
-        """Extract abilities that hit multiple times."""
-        multi_hit = []
-        seen = set()
-        
-        for entry in entries:
-            if entry.get("is_multi_hit", False):
-                ability_name = entry.get("ability_name", "")
-                if ability_name not in seen:
-                    seen.add(ability_name)
-                    multi_hit.append({
-                        "ability_name": ability_name,
-                        "hit_count": entry.get("hit_count", 1),
-                        "first_timestamp": entry.get("first_timestamp", entry.get("timestamp")),
-                        "last_timestamp": entry.get("last_timestamp", entry.get("timestamp")),
-                        "time_span": entry.get("time_span", 0),
-                        "target_type": entry.get("target_type", "unknown"),
-                    })
-        
-        return multi_hit
+    # ------------------------------------------------------------------
+    # Confidence
+    # ------------------------------------------------------------------
 
     def _calculate_confidence(
         self,
         cactbot_data: dict[str, Any],
         guide_data: dict[str, Any],
     ) -> float:
-        """Calculate confidence score based on available data."""
-        confidence = 0.0
+        """Score 0–1 based on data availability."""
+        score = 0.0
 
-        # Base confidence from cactbot data
         if cactbot_data.get("entries"):
-            confidence += 0.5
+            score += 0.5
         if cactbot_data.get("phases"):
-            confidence += 0.2
+            score += 0.2
 
-        # Bonus from guide data
-        guides = guide_data.get("guides", {})
-        for source, data in guides.items():
+        for _source, data in guide_data.get("guides", {}).items():
             if data.get("success"):
-                confidence += 0.15
+                score += 0.15
 
-        return min(confidence, 1.0)
+        return min(score, 1.0)
 
-    def _get_guide_sources(self, guide_data: dict[str, Any]) -> list[str]:
-        """Get list of successful guide sources."""
-        sources = []
-        guides = guide_data.get("guides", {})
+    # ------------------------------------------------------------------
+    # Cactbot export
+    # ------------------------------------------------------------------
 
-        for source, data in guides.items():
-            if data.get("success"):
-                sources.append(source)
+    def generate_cactbot_export(self, synthesized: dict[str, Any]) -> str:
+        """Generate cactbot-compatible timeline text from synthesized data."""
+        lines: list[str] = []
 
-        return sources
+        boss = synthesized.get("boss_name", "Unknown")
+        expansion = synthesized.get("expansion", "")
+        enc_type = synthesized.get("encounter_type", "")
 
-    def generate_cactbot_export(
-        self,
-        synthesized_data: dict[str, Any],
-    ) -> str:
-        """
-        Generate cactbot-compatible timeline text.
-
-        Args:
-            synthesized_data: Synthesized timeline data
-
-        Returns:
-            Cactbot-compatible timeline text
-        """
-        lines = []
-
-        boss_name = synthesized_data.get("boss_name", "Unknown")
-        expansion = synthesized_data.get("expansion", "")
-        encounter_type = synthesized_data.get("encounter_type", "")
-
-        # Header
-        lines.append(f"### {boss_name}")
-        lines.append(f"### Expansion: {expansion}, Type: {encounter_type}")
+        lines.append(f"### {boss}")
+        lines.append(f"### Expansion: {expansion}, Type: {enc_type}")
         lines.append("")
         lines.append('hideall "--Reset--"')
         lines.append('hideall "--sync--"')
         lines.append("")
-        lines.append('0.0 "--Reset--" ActorControl { command: "4000000F" } window 0,100000 jump 0')
+        lines.append(
+            '0.0 "--Reset--" ActorControl { command: "4000000F" } '
+            "window 0,100000 jump 0"
+        )
         lines.append("")
         lines.append('0.0 "--sync--" InCombat { inGameCombat: "1" } window 0,1')
         lines.append("")
 
-        # Add entries grouped by phase
-        phases = synthesized_data.get("phases", [])
-        for phase in phases:
-            phase_name = phase.get("name", "Unknown")
-            lines.append(f"### {phase_name}")
+        for phase in synthesized.get("phases", []):
+            lines.append(f"### {phase.get('name', 'Unknown')}")
             lines.append("")
 
-            abilities = phase.get("abilities", [])
-            for ability in abilities:
-                timestamp = ability.get("timestamp", 0)
-                ability_name = ability.get("ability_name", "")
-                ability_id = ability.get("ability_id")
-                source = ability.get("source", "")
+            for ability in phase.get("entries", []):
+                ts = ability.get("timestamp", 0)
+                name = ability.get("ability_name", "")
+                aid = ability.get("ability_id")
+                source = ability.get("source")
 
-                # Build the entry line
-                if ability_id and source:
-                    line = f'{timestamp} "{ability_name}" Ability {{ id: "{ability_id}", source: "{source}" }}'
-                elif ability_id:
-                    line = f'{timestamp} "{ability_name}" Ability {{ id: "{ability_id}" }}'
+                if aid and source:
+                    base_line = f'{ts} "{name}" Ability {{ id: "{aid}", source: "{source}" }}'
+                elif aid:
+                    base_line = f'{ts} "{name}" Ability {{ id: "{aid}" }}'
                 else:
-                    line = f'{timestamp} "{ability_name}"'
-
-                lines.append(line)
+                    base_line = f'{ts} "{name}"'
+                    
+                damage = ability.get("unmitigated_damage")
+                if damage is not None:
+                    # Include damage range if available
+                    d_min = ability.get("damage_min")
+                    d_max = ability.get("damage_max")
+                    if d_min is not None and d_max is not None:
+                        base_line += f" # ~{damage:,.0f} ({d_min:,.0f}-{d_max:,.0f})"
+                    else:
+                        base_line += f" # ~{damage:,.0f} unmitigated dmg"
+                    
+                    tags = []
+                    if ability.get("ability_type"):
+                        tags.append(ability.get("ability_type"))
+                    if ability.get("is_dot"):
+                        tags.append("DOT")
+                    
+                    if tags:
+                        base_line += f" [{', '.join(tags)}]"
+                    
+                    # Add mitigation note if present
+                    mit_note = ability.get("mitigation_note")
+                    if mit_note:
+                        base_line += f" | mit: {mit_note}"
+                        
+                lines.append(base_line)
 
             lines.append("")
 
-        # Add variations as comments
-        variations = synthesized_data.get("variations", [])
-        if variations:
-            lines.append("### Variations")
-            for variation in variations:
-                lines.append(f"# {variation.get('title', '')}: {variation.get('description', '')}")
-            lines.append("")
-
-        # Add notes as comments
-        notes = synthesized_data.get("notes", [])
-        if notes:
-            lines.append("### Notes")
-            for note in notes:
-                lines.append(f"# {note}")
-            lines.append("")
+        # Notes as comments
+        for note in synthesized.get("notes", []):
+            lines.append(f"# {note}")
 
         return "\n".join(lines)

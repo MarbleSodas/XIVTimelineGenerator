@@ -1,6 +1,5 @@
 """Data models for XIV Timeline Generator."""
 
-from datetime import datetime
 from enum import Enum
 from typing import Any
 
@@ -48,126 +47,129 @@ class Difficulty(str, Enum):
     ULTIMATE = "u"
 
 
-# Boss name to cactbot file mapping
-# Keys are user-friendly boss names (M#S format for current raids)
-# Values map to cactbot file names (raid codes like r8s, p12s, etc.)
-BOSS_NAME_MAPPING = {
+# ---------------------------------------------------------------------------
+# Boss name → cactbot file mapping
+# ---------------------------------------------------------------------------
+
+BOSS_NAME_MAPPING: dict[str, dict[str, Any]] = {
     # ============ Dawntrail (07-dt) - The Arcadion ============
-    # AAC Light-heavyweight Tier (r1s-r4s = M1S-M4S)
-    "m1s": {"expansion": Expansion.DAWNTRAIL, "type": EncounterType.RAID, "difficulty": Difficulty.SAVAGE, "cactbot_id": "r1s"},
-    "m2s": {"expansion": Expansion.DAWNTRAIL, "type": EncounterType.RAID, "difficulty": Difficulty.SAVAGE, "cactbot_id": "r2s"},
-    "m3s": {"expansion": Expansion.DAWNTRAIL, "type": EncounterType.RAID, "difficulty": Difficulty.SAVAGE, "cactbot_id": "r3s"},
-    "m4s": {"expansion": Expansion.DAWNTRAIL, "type": EncounterType.RAID, "difficulty": Difficulty.SAVAGE, "cactbot_id": "r4s"},
-    # AAC Cruiserweight Tier (r5s-r8s = M5S-M8S)
-    "m5s": {"expansion": Expansion.DAWNTRAIL, "type": EncounterType.RAID, "difficulty": Difficulty.SAVAGE, "cactbot_id": "r5s"},
-    "m6s": {"expansion": Expansion.DAWNTRAIL, "type": EncounterType.RAID, "difficulty": Difficulty.SAVAGE, "cactbot_id": "r6s"},
-    "m7s": {"expansion": Expansion.DAWNTRAIL, "type": EncounterType.RAID, "difficulty": Difficulty.SAVAGE, "cactbot_id": "r7s"},
-    "m8s": {"expansion": Expansion.DAWNTRAIL, "type": EncounterType.RAID, "difficulty": Difficulty.SAVAGE, "cactbot_id": "r8s"},
-    # AAC Heavyweight Tier (r9s-r12s = M9S-M12S)
-    "m9s": {"expansion": Expansion.DAWNTRAIL, "type": EncounterType.RAID, "difficulty": Difficulty.SAVAGE, "cactbot_id": "r9s"},
-    "m10s": {"expansion": Expansion.DAWNTRAIL, "type": EncounterType.RAID, "difficulty": Difficulty.SAVAGE, "cactbot_id": "r10s"},
-    "m11s": {"expansion": Expansion.DAWNTRAIL, "type": EncounterType.RAID, "difficulty": Difficulty.SAVAGE, "cactbot_id": "r11s"},
-    "m12s": {"expansion": Expansion.DAWNTRAIL, "type": EncounterType.RAID, "difficulty": Difficulty.SAVAGE, "cactbot_id": "r12s"},
-    
+    # AAC Light-heavyweight (M1S-M4S → r1s-r4s)
+    "m1s": {"expansion": Expansion.DAWNTRAIL, "type": EncounterType.RAID, "difficulty": Difficulty.SAVAGE, "cactbot_id": "r1s", "fflogs_id": 93},
+    "m2s": {"expansion": Expansion.DAWNTRAIL, "type": EncounterType.RAID, "difficulty": Difficulty.SAVAGE, "cactbot_id": "r2s", "fflogs_id": 94},
+    "m3s": {"expansion": Expansion.DAWNTRAIL, "type": EncounterType.RAID, "difficulty": Difficulty.SAVAGE, "cactbot_id": "r3s", "fflogs_id": 95},
+    "m4s": {"expansion": Expansion.DAWNTRAIL, "type": EncounterType.RAID, "difficulty": Difficulty.SAVAGE, "cactbot_id": "r4s", "fflogs_id": 96},
+    # AAC Cruiserweight (M5S-M8S → r5s-r8s)
+    "m5s": {"expansion": Expansion.DAWNTRAIL, "type": EncounterType.RAID, "difficulty": Difficulty.SAVAGE, "cactbot_id": "r5s", "fflogs_id": 97},
+    "m6s": {"expansion": Expansion.DAWNTRAIL, "type": EncounterType.RAID, "difficulty": Difficulty.SAVAGE, "cactbot_id": "r6s", "fflogs_id": 98},
+    "m7s": {"expansion": Expansion.DAWNTRAIL, "type": EncounterType.RAID, "difficulty": Difficulty.SAVAGE, "cactbot_id": "r7s", "fflogs_id": 99},
+    "m8s": {"expansion": Expansion.DAWNTRAIL, "type": EncounterType.RAID, "difficulty": Difficulty.SAVAGE, "cactbot_id": "r8s", "fflogs_id": 100},
+    # AAC Heavyweight (M9S-M12S → r9s-r12s)
+    "m9s": {"expansion": Expansion.DAWNTRAIL, "type": EncounterType.RAID, "difficulty": Difficulty.SAVAGE, "cactbot_id": "r9s", "fflogs_id": 101},
+    "m10s": {"expansion": Expansion.DAWNTRAIL, "type": EncounterType.RAID, "difficulty": Difficulty.SAVAGE, "cactbot_id": "r10s", "fflogs_id": 102},
+    "m11s": {"expansion": Expansion.DAWNTRAIL, "type": EncounterType.RAID, "difficulty": Difficulty.SAVAGE, "cactbot_id": "r11s", "fflogs_id": 103},
+    "m12s": {"expansion": Expansion.DAWNTRAIL, "type": EncounterType.RAID, "difficulty": Difficulty.SAVAGE, "cactbot_id": "r12s", "fflogs_id": 104},
     # Dawntrail Trials
-    "zoraal_ja": {"expansion": Expansion.DAWNTRAIL, "type": EncounterType.TRIAL, "difficulty": Difficulty.SAVAGE, "cactbot_id": "zoraal-ja"},
-    "arkveld": {"expansion": Expansion.DAWNTRAIL, "type": EncounterType.TRIAL, "difficulty": Difficulty.SAVAGE, "cactbot_id": "arkveld"},
-    "doomtrain": {"expansion": Expansion.DAWNTRAIL, "type": EncounterType.TRIAL, "difficulty": Difficulty.SAVAGE, "cactbot_id": "doomtrain"},
-    
+    "zoraal_ja": {"expansion": Expansion.DAWNTRAIL, "type": EncounterType.TRIAL, "difficulty": Difficulty.SAVAGE, "cactbot_id": "zoraal-ja", "fflogs_id": 1072},
+    "arkveld": {"expansion": Expansion.DAWNTRAIL, "type": EncounterType.TRIAL, "difficulty": Difficulty.SAVAGE, "cactbot_id": "arkveld", "fflogs_id": 1082},
+    "doomtrain": {"expansion": Expansion.DAWNTRAIL, "type": EncounterType.TRIAL, "difficulty": Difficulty.SAVAGE, "cactbot_id": "doomtrain", "fflogs_id": 1083},
+
     # ============ Endwalker (06-ew) - Pandæmonium ============
-    # Asphodelos (p1s-p4s)
-    "p1s": {"expansion": Expansion.ENDWALKER, "type": EncounterType.RAID, "difficulty": Difficulty.SAVAGE, "cactbot_id": "p1s"},
-    "p2s": {"expansion": Expansion.ENDWALKER, "type": EncounterType.RAID, "difficulty": Difficulty.SAVAGE, "cactbot_id": "p2s"},
-    "p3s": {"expansion": Expansion.ENDWALKER, "type": EncounterType.RAID, "difficulty": Difficulty.SAVAGE, "cactbot_id": "p3s"},
-    "p4s": {"expansion": Expansion.ENDWALKER, "type": EncounterType.RAID, "difficulty": Difficulty.SAVAGE, "cactbot_id": "p4s"},
-    # Abyssos (p5s-p8s)
-    "p5s": {"expansion": Expansion.ENDWALKER, "type": EncounterType.RAID, "difficulty": Difficulty.SAVAGE, "cactbot_id": "p5s"},
-    "p6s": {"expansion": Expansion.ENDWALKER, "type": EncounterType.RAID, "difficulty": Difficulty.SAVAGE, "cactbot_id": "p6s"},
-    "p7s": {"expansion": Expansion.ENDWALKER, "type": EncounterType.RAID, "difficulty": Difficulty.SAVAGE, "cactbot_id": "p7s"},
-    "p8s": {"expansion": Expansion.ENDWALKER, "type": EncounterType.RAID, "difficulty": Difficulty.SAVAGE, "cactbot_id": "p8s"},
-    # Anabaseios (p9s-p12s)
-    "p9s": {"expansion": Expansion.ENDWALKER, "type": EncounterType.RAID, "difficulty": Difficulty.SAVAGE, "cactbot_id": "p9s"},
-    "p10s": {"expansion": Expansion.ENDWALKER, "type": EncounterType.RAID, "difficulty": Difficulty.SAVAGE, "cactbot_id": "p10s"},
-    "p11s": {"expansion": Expansion.ENDWALKER, "type": EncounterType.RAID, "difficulty": Difficulty.SAVAGE, "cactbot_id": "p11s"},
-    "p12s": {"expansion": Expansion.ENDWALKER, "type": EncounterType.RAID, "difficulty": Difficulty.SAVAGE, "cactbot_id": "p12s"},
-    
+    # Asphodelos (P1S-P4S)
+    "p1s": {"expansion": Expansion.ENDWALKER, "type": EncounterType.RAID, "difficulty": Difficulty.SAVAGE, "cactbot_id": "p1s", "fflogs_id": 78},
+    "p2s": {"expansion": Expansion.ENDWALKER, "type": EncounterType.RAID, "difficulty": Difficulty.SAVAGE, "cactbot_id": "p2s", "fflogs_id": 79},
+    "p3s": {"expansion": Expansion.ENDWALKER, "type": EncounterType.RAID, "difficulty": Difficulty.SAVAGE, "cactbot_id": "p3s", "fflogs_id": 80},
+    "p4s": {"expansion": Expansion.ENDWALKER, "type": EncounterType.RAID, "difficulty": Difficulty.SAVAGE, "cactbot_id": "p4s", "fflogs_id": 81},
+    # Abyssos (P5S-P8S)
+    "p5s": {"expansion": Expansion.ENDWALKER, "type": EncounterType.RAID, "difficulty": Difficulty.SAVAGE, "cactbot_id": "p5s", "fflogs_id": 83},
+    "p6s": {"expansion": Expansion.ENDWALKER, "type": EncounterType.RAID, "difficulty": Difficulty.SAVAGE, "cactbot_id": "p6s", "fflogs_id": 84},
+    "p7s": {"expansion": Expansion.ENDWALKER, "type": EncounterType.RAID, "difficulty": Difficulty.SAVAGE, "cactbot_id": "p7s", "fflogs_id": 85},
+    "p8s": {"expansion": Expansion.ENDWALKER, "type": EncounterType.RAID, "difficulty": Difficulty.SAVAGE, "cactbot_id": "p8s", "fflogs_id": 86},
+    # Anabaseios (P9S-P12S)
+    "p9s": {"expansion": Expansion.ENDWALKER, "type": EncounterType.RAID, "difficulty": Difficulty.SAVAGE, "cactbot_id": "p9s", "fflogs_id": 88},
+    "p10s": {"expansion": Expansion.ENDWALKER, "type": EncounterType.RAID, "difficulty": Difficulty.SAVAGE, "cactbot_id": "p10s", "fflogs_id": 89},
+    "p11s": {"expansion": Expansion.ENDWALKER, "type": EncounterType.RAID, "difficulty": Difficulty.SAVAGE, "cactbot_id": "p11s", "fflogs_id": 90},
+    "p12s": {"expansion": Expansion.ENDWALKER, "type": EncounterType.RAID, "difficulty": Difficulty.SAVAGE, "cactbot_id": "p12s", "fflogs_id": 91},
     # Endwalker Trials
-    "zodiark": {"expansion": Expansion.ENDWALKER, "type": EncounterType.TRIAL, "difficulty": Difficulty.SAVAGE, "cactbot_id": "zodiark"},
-    "endsinger": {"expansion": Expansion.ENDWALKER, "type": EncounterType.TRIAL, "difficulty": Difficulty.SAVAGE, "cactbot_id": "endsinger"},
-    "barbariccia": {"expansion": Expansion.ENDWALKER, "type": EncounterType.TRIAL, "difficulty": Difficulty.SAVAGE, "cactbot_id": "barbariccia"},
-    
+    "zodiark": {"expansion": Expansion.ENDWALKER, "type": EncounterType.TRIAL, "difficulty": Difficulty.SAVAGE, "cactbot_id": "zodiark", "fflogs_id": 1058},
+    "endsinger": {"expansion": Expansion.ENDWALKER, "type": EncounterType.TRIAL, "difficulty": Difficulty.SAVAGE, "cactbot_id": "endsinger", "fflogs_id": 1063},
+    "barbariccia": {"expansion": Expansion.ENDWALKER, "type": EncounterType.TRIAL, "difficulty": Difficulty.SAVAGE, "cactbot_id": "barbariccia", "fflogs_id": 1066},
     # Endwalker Ultimates
-    "omega_protocol": {"expansion": Expansion.ENDWALKER, "type": EncounterType.ULTIMATE, "difficulty": Difficulty.ULTIMATE, "cactbot_id": "the_omega_protocol"},
-    "top": {"expansion": Expansion.ENDWALKER, "type": EncounterType.ULTIMATE, "difficulty": Difficulty.ULTIMATE, "cactbot_id": "the_omega_protocol"},
-    "dsr": {"expansion": Expansion.ENDWALKER, "type": EncounterType.ULTIMATE, "difficulty": Difficulty.ULTIMATE, "cactbot_id": "dragonsongs_reprise_ultimate"},
-    "dragonsongs_reprise": {"expansion": Expansion.ENDWALKER, "type": EncounterType.ULTIMATE, "difficulty": Difficulty.ULTIMATE, "cactbot_id": "dragonsongs_reprise_ultimate"},
-    
+    "omega_protocol": {"expansion": Expansion.ENDWALKER, "type": EncounterType.ULTIMATE, "difficulty": Difficulty.ULTIMATE, "cactbot_id": "the_omega_protocol", "fflogs_id": 1077},
+    "top": {"expansion": Expansion.ENDWALKER, "type": EncounterType.ULTIMATE, "difficulty": Difficulty.ULTIMATE, "cactbot_id": "the_omega_protocol", "fflogs_id": 1077},
+    "dsr": {"expansion": Expansion.ENDWALKER, "type": EncounterType.ULTIMATE, "difficulty": Difficulty.ULTIMATE, "cactbot_id": "dragonsongs_reprise_ultimate", "fflogs_id": 1076},
+    "dragonsongs_reprise": {"expansion": Expansion.ENDWALKER, "type": EncounterType.ULTIMATE, "difficulty": Difficulty.ULTIMATE, "cactbot_id": "dragonsongs_reprise_ultimate", "fflogs_id": 1076},
+
     # ============ Shadowbringers (05-shb) - Eden ============
-    # Eden's Promise (e1s-e12s)
-    "e1s": {"expansion": Expansion.SHADOWBRINGERS, "type": EncounterType.RAID, "difficulty": Difficulty.SAVAGE, "cactbot_id": "e1s"},
-    "e2s": {"expansion": Expansion.SHADOWBRINGERS, "type": EncounterType.RAID, "difficulty": Difficulty.SAVAGE, "cactbot_id": "e2s"},
-    "e3s": {"expansion": Expansion.SHADOWBRINGERS, "type": EncounterType.RAID, "difficulty": Difficulty.SAVAGE, "cactbot_id": "e3s"},
-    "e4s": {"expansion": Expansion.SHADOWBRINGERS, "type": EncounterType.RAID, "difficulty": Difficulty.SAVAGE, "cactbot_id": "e4s"},
-    "e5s": {"expansion": Expansion.SHADOWBRINGERS, "type": EncounterType.RAID, "difficulty": Difficulty.SAVAGE, "cactbot_id": "e5s"},
-    "e6s": {"expansion": Expansion.SHADOWBRINGERS, "type": EncounterType.RAID, "difficulty": Difficulty.SAVAGE, "cactbot_id": "e6s"},
-    "e7s": {"expansion": Expansion.SHADOWBRINGERS, "type": EncounterType.RAID, "difficulty": Difficulty.SAVAGE, "cactbot_id": "e7s"},
-    "e8s": {"expansion": Expansion.SHADOWBRINGERS, "type": EncounterType.RAID, "difficulty": Difficulty.SAVAGE, "cactbot_id": "e8s"},
-    "e9s": {"expansion": Expansion.SHADOWBRINGERS, "type": EncounterType.RAID, "difficulty": Difficulty.SAVAGE, "cactbot_id": "e9s"},
-    "e10s": {"expansion": Expansion.SHADOWBRINGERS, "type": EncounterType.RAID, "difficulty": Difficulty.SAVAGE, "cactbot_id": "e10s"},
-    "e11s": {"expansion": Expansion.SHADOWBRINGERS, "type": EncounterType.RAID, "difficulty": Difficulty.SAVAGE, "cactbot_id": "e11s"},
-    "e12s": {"expansion": Expansion.SHADOWBRINGERS, "type": EncounterType.RAID, "difficulty": Difficulty.SAVAGE, "cactbot_id": "e12s"},
-    
+    # Eden's Gate (E1S-E4S)
+    "e1s": {"expansion": Expansion.SHADOWBRINGERS, "type": EncounterType.RAID, "difficulty": Difficulty.SAVAGE, "cactbot_id": "e1s", "fflogs_id": 65},
+    "e2s": {"expansion": Expansion.SHADOWBRINGERS, "type": EncounterType.RAID, "difficulty": Difficulty.SAVAGE, "cactbot_id": "e2s", "fflogs_id": 66},
+    "e3s": {"expansion": Expansion.SHADOWBRINGERS, "type": EncounterType.RAID, "difficulty": Difficulty.SAVAGE, "cactbot_id": "e3s", "fflogs_id": 67},
+    "e4s": {"expansion": Expansion.SHADOWBRINGERS, "type": EncounterType.RAID, "difficulty": Difficulty.SAVAGE, "cactbot_id": "e4s", "fflogs_id": 68},
+    # Eden's Verse (E5S-E8S)
+    "e5s": {"expansion": Expansion.SHADOWBRINGERS, "type": EncounterType.RAID, "difficulty": Difficulty.SAVAGE, "cactbot_id": "e5s", "fflogs_id": 69},
+    "e6s": {"expansion": Expansion.SHADOWBRINGERS, "type": EncounterType.RAID, "difficulty": Difficulty.SAVAGE, "cactbot_id": "e6s", "fflogs_id": 70},
+    "e7s": {"expansion": Expansion.SHADOWBRINGERS, "type": EncounterType.RAID, "difficulty": Difficulty.SAVAGE, "cactbot_id": "e7s", "fflogs_id": 71},
+    "e8s": {"expansion": Expansion.SHADOWBRINGERS, "type": EncounterType.RAID, "difficulty": Difficulty.SAVAGE, "cactbot_id": "e8s", "fflogs_id": 72},
+    # Eden's Promise (E9S-E12S)
+    "e9s": {"expansion": Expansion.SHADOWBRINGERS, "type": EncounterType.RAID, "difficulty": Difficulty.SAVAGE, "cactbot_id": "e9s", "fflogs_id": 73},
+    "e10s": {"expansion": Expansion.SHADOWBRINGERS, "type": EncounterType.RAID, "difficulty": Difficulty.SAVAGE, "cactbot_id": "e10s", "fflogs_id": 74},
+    "e11s": {"expansion": Expansion.SHADOWBRINGERS, "type": EncounterType.RAID, "difficulty": Difficulty.SAVAGE, "cactbot_id": "e11s", "fflogs_id": 75},
+    "e12s": {"expansion": Expansion.SHADOWBRINGERS, "type": EncounterType.RAID, "difficulty": Difficulty.SAVAGE, "cactbot_id": "e12s", "fflogs_id": 76},
     # Shadowbringers Ultimates
-    "tea": {"expansion": Expansion.SHADOWBRINGERS, "type": EncounterType.ULTIMATE, "difficulty": Difficulty.ULTIMATE, "cactbot_id": "tea"},
-    "ultima_unreal": {"expansion": Expansion.SHADOWBRINGERS, "type": EncounterType.ULTIMATE, "difficulty": Difficulty.ULTIMATE, "cactbot_id": "uco_ultimate"},
-    "uco": {"expansion": Expansion.SHADOWBRINGERS, "type": EncounterType.ULTIMATE, "difficulty": Difficulty.ULTIMATE, "cactbot_id": "uco_ultimate"},
-    
+    "tea": {"expansion": Expansion.SHADOWBRINGERS, "type": EncounterType.ULTIMATE, "difficulty": Difficulty.ULTIMATE, "cactbot_id": "tea", "fflogs_id": 1075},
+    "ultima_unreal": {"expansion": Expansion.SHADOWBRINGERS, "type": EncounterType.ULTIMATE, "difficulty": Difficulty.ULTIMATE, "cactbot_id": "uco_ultimate", "fflogs_id": 1073},
+    "uco": {"expansion": Expansion.SHADOWBRINGERS, "type": EncounterType.ULTIMATE, "difficulty": Difficulty.ULTIMATE, "cactbot_id": "uco_ultimate", "fflogs_id": 1073},
+
     # ============ Stormblood (04-sb) - Omega ============
-    # Omega Deltascape (o1s-o4s)
-    "o1s": {"expansion": Expansion.STORMBLOOD, "type": EncounterType.RAID, "difficulty": Difficulty.SAVAGE, "cactbot_id": "o1s"},
-    "o2s": {"expansion": Expansion.STORMBLOOD, "type": EncounterType.RAID, "difficulty": Difficulty.SAVAGE, "cactbot_id": "o2s"},
-    "o3s": {"expansion": Expansion.STORMBLOOD, "type": EncounterType.RAID, "difficulty": Difficulty.SAVAGE, "cactbot_id": "o3s"},
-    "o4s": {"expansion": Expansion.STORMBLOOD, "type": EncounterType.RAID, "difficulty": Difficulty.SAVAGE, "cactbot_id": "o4s"},
-    # Omega Sigmascape (o5s-o8s)
-    "o5s": {"expansion": Expansion.STORMBLOOD, "type": EncounterType.RAID, "difficulty": Difficulty.SAVAGE, "cactbot_id": "o5s"},
-    "o6s": {"expansion": Expansion.STORMBLOOD, "type": EncounterType.RAID, "difficulty": Difficulty.SAVAGE, "cactbot_id": "o6s"},
-    "o7s": {"expansion": Expansion.STORMBLOOD, "type": EncounterType.RAID, "difficulty": Difficulty.SAVAGE, "cactbot_id": "o7s"},
-    "o8s": {"expansion": Expansion.STORMBLOOD, "type": EncounterType.RAID, "difficulty": Difficulty.SAVAGE, "cactbot_id": "o8s"},
-    # Omega Omegascape (o9s-o12s)
-    "o9s": {"expansion": Expansion.STORMBLOOD, "type": EncounterType.RAID, "difficulty": Difficulty.SAVAGE, "cactbot_id": "o9s"},
-    "o10s": {"expansion": Expansion.STORMBLOOD, "type": EncounterType.RAID, "difficulty": Difficulty.SAVAGE, "cactbot_id": "o10s"},
-    "o11s": {"expansion": Expansion.STORMBLOOD, "type": EncounterType.RAID, "difficulty": Difficulty.SAVAGE, "cactbot_id": "o11s"},
-    "o12s": {"expansion": Expansion.STORMBLOOD, "type": EncounterType.RAID, "difficulty": Difficulty.SAVAGE, "cactbot_id": "o12s"},
-    
+    # Deltascape (O1S-O4S)
+    "o1s": {"expansion": Expansion.STORMBLOOD, "type": EncounterType.RAID, "difficulty": Difficulty.SAVAGE, "cactbot_id": "o1s", "fflogs_id": 42},
+    "o2s": {"expansion": Expansion.STORMBLOOD, "type": EncounterType.RAID, "difficulty": Difficulty.SAVAGE, "cactbot_id": "o2s", "fflogs_id": 43},
+    "o3s": {"expansion": Expansion.STORMBLOOD, "type": EncounterType.RAID, "difficulty": Difficulty.SAVAGE, "cactbot_id": "o3s", "fflogs_id": 44},
+    "o4s": {"expansion": Expansion.STORMBLOOD, "type": EncounterType.RAID, "difficulty": Difficulty.SAVAGE, "cactbot_id": "o4s", "fflogs_id": 45},
+    # Sigmascape (O5S-O8S)
+    "o5s": {"expansion": Expansion.STORMBLOOD, "type": EncounterType.RAID, "difficulty": Difficulty.SAVAGE, "cactbot_id": "o5s", "fflogs_id": 51},
+    "o6s": {"expansion": Expansion.STORMBLOOD, "type": EncounterType.RAID, "difficulty": Difficulty.SAVAGE, "cactbot_id": "o6s", "fflogs_id": 52},
+    "o7s": {"expansion": Expansion.STORMBLOOD, "type": EncounterType.RAID, "difficulty": Difficulty.SAVAGE, "cactbot_id": "o7s", "fflogs_id": 53},
+    "o8s": {"expansion": Expansion.STORMBLOOD, "type": EncounterType.RAID, "difficulty": Difficulty.SAVAGE, "cactbot_id": "o8s", "fflogs_id": 54},
+    # Alphascape (O9S-O12S)
+    "o9s": {"expansion": Expansion.STORMBLOOD, "type": EncounterType.RAID, "difficulty": Difficulty.SAVAGE, "cactbot_id": "o9s", "fflogs_id": 60},
+    "o10s": {"expansion": Expansion.STORMBLOOD, "type": EncounterType.RAID, "difficulty": Difficulty.SAVAGE, "cactbot_id": "o10s", "fflogs_id": 61},
+    "o11s": {"expansion": Expansion.STORMBLOOD, "type": EncounterType.RAID, "difficulty": Difficulty.SAVAGE, "cactbot_id": "o11s", "fflogs_id": 62},
+    "o12s": {"expansion": Expansion.STORMBLOOD, "type": EncounterType.RAID, "difficulty": Difficulty.SAVAGE, "cactbot_id": "o12s", "fflogs_id": 63},
     # Stormblood Ultimates
-    "uwu": {"expansion": Expansion.STORMBLOOD, "type": EncounterType.ULTIMATE, "difficulty": Difficulty.ULTIMATE, "cactbot_id": "ultimate"},
-    "ultima_weapon": {"expansion": Expansion.STORMBLOOD, "type": EncounterType.ULTIMATE, "difficulty": Difficulty.ULTIMATE, "cactbot_id": "ultimate"},
-    
+    "uwu": {"expansion": Expansion.STORMBLOOD, "type": EncounterType.ULTIMATE, "difficulty": Difficulty.ULTIMATE, "cactbot_id": "ultimate", "fflogs_id": 1074},
+    "ultima_weapon": {"expansion": Expansion.STORMBLOOD, "type": EncounterType.ULTIMATE, "difficulty": Difficulty.ULTIMATE, "cactbot_id": "ultimate", "fflogs_id": 1074},
+
     # ============ Heavensward (03-hw) - Alexander ============
-    # Alexander (a1s-a12s)
-    "a1s": {"expansion": Expansion.HEAVENSWARD, "type": EncounterType.RAID, "difficulty": Difficulty.SAVAGE, "cactbot_id": "a1s"},
-    "a2s": {"expansion": Expansion.HEAVENSWARD, "type": EncounterType.RAID, "difficulty": Difficulty.SAVAGE, "cactbot_id": "a2s"},
-    "a3s": {"expansion": Expansion.HEAVENSWARD, "type": EncounterType.RAID, "difficulty": Difficulty.SAVAGE, "cactbot_id": "a3s"},
-    "a4s": {"expansion": Expansion.HEAVENSWARD, "type": EncounterType.RAID, "difficulty": Difficulty.SAVAGE, "cactbot_id": "a4s"},
-    "a5s": {"expansion": Expansion.HEAVENSWARD, "type": EncounterType.RAID, "difficulty": Difficulty.SAVAGE, "cactbot_id": "a5s"},
-    "a6s": {"expansion": Expansion.HEAVENSWARD, "type": EncounterType.RAID, "difficulty": Difficulty.SAVAGE, "cactbot_id": "a6s"},
-    "a7s": {"expansion": Expansion.HEAVENSWARD, "type": EncounterType.RAID, "difficulty": Difficulty.SAVAGE, "cactbot_id": "a7s"},
-    "a8s": {"expansion": Expansion.HEAVENSWARD, "type": EncounterType.RAID, "difficulty": Difficulty.SAVAGE, "cactbot_id": "a8s"},
-    "a9s": {"expansion": Expansion.HEAVENSWARD, "type": EncounterType.RAID, "difficulty": Difficulty.SAVAGE, "cactbot_id": "a9s"},
-    "a10s": {"expansion": Expansion.HEAVENSWARD, "type": EncounterType.RAID, "difficulty": Difficulty.SAVAGE, "cactbot_id": "a10s"},
-    "a11s": {"expansion": Expansion.HEAVENSWARD, "type": EncounterType.RAID, "difficulty": Difficulty.SAVAGE, "cactbot_id": "a11s"},
-    "a12s": {"expansion": Expansion.HEAVENSWARD, "type": EncounterType.RAID, "difficulty": Difficulty.SAVAGE, "cactbot_id": "a12s"},
+    # Gordias (A1S-A4S)
+    "a1s": {"expansion": Expansion.HEAVENSWARD, "type": EncounterType.RAID, "difficulty": Difficulty.SAVAGE, "cactbot_id": "a1s", "fflogs_id": 18},
+    "a2s": {"expansion": Expansion.HEAVENSWARD, "type": EncounterType.RAID, "difficulty": Difficulty.SAVAGE, "cactbot_id": "a2s", "fflogs_id": 19},
+    "a3s": {"expansion": Expansion.HEAVENSWARD, "type": EncounterType.RAID, "difficulty": Difficulty.SAVAGE, "cactbot_id": "a3s", "fflogs_id": 20},
+    "a4s": {"expansion": Expansion.HEAVENSWARD, "type": EncounterType.RAID, "difficulty": Difficulty.SAVAGE, "cactbot_id": "a4s", "fflogs_id": 21},
+    # Midas (A5S-A8S)
+    "a5s": {"expansion": Expansion.HEAVENSWARD, "type": EncounterType.RAID, "difficulty": Difficulty.SAVAGE, "cactbot_id": "a5s", "fflogs_id": 26},
+    "a6s": {"expansion": Expansion.HEAVENSWARD, "type": EncounterType.RAID, "difficulty": Difficulty.SAVAGE, "cactbot_id": "a6s", "fflogs_id": 27},
+    "a7s": {"expansion": Expansion.HEAVENSWARD, "type": EncounterType.RAID, "difficulty": Difficulty.SAVAGE, "cactbot_id": "a7s", "fflogs_id": 28},
+    "a8s": {"expansion": Expansion.HEAVENSWARD, "type": EncounterType.RAID, "difficulty": Difficulty.SAVAGE, "cactbot_id": "a8s", "fflogs_id": 29},
+    # The Creator (A9S-A12S)
+    "a9s": {"expansion": Expansion.HEAVENSWARD, "type": EncounterType.RAID, "difficulty": Difficulty.SAVAGE, "cactbot_id": "a9s", "fflogs_id": 34},
+    "a10s": {"expansion": Expansion.HEAVENSWARD, "type": EncounterType.RAID, "difficulty": Difficulty.SAVAGE, "cactbot_id": "a10s", "fflogs_id": 35},
+    "a11s": {"expansion": Expansion.HEAVENSWARD, "type": EncounterType.RAID, "difficulty": Difficulty.SAVAGE, "cactbot_id": "a11s", "fflogs_id": 36},
+    "a12s": {"expansion": Expansion.HEAVENSWARD, "type": EncounterType.RAID, "difficulty": Difficulty.SAVAGE, "cactbot_id": "a12s", "fflogs_id": 37},
 }
 
 
 def resolve_boss_name(boss_name: str) -> dict[str, Any] | None:
-    """Resolve boss name to cactbot file parameters."""
-    # Normalize: replace spaces/hyphens with underscores and lowercase
+    """Resolve a user-provided boss name to cactbot file parameters.
+
+    Tries exact match first, then partial match on both sides.
+    """
     normalized = boss_name.lower().strip().replace(" ", "_").replace("-", "_")
+
     if normalized in BOSS_NAME_MAPPING:
         return BOSS_NAME_MAPPING[normalized]
 
-    # Try partial match
+    # Partial match fallback
     for key, value in BOSS_NAME_MAPPING.items():
         if key in normalized or normalized in key:
             return value
@@ -175,227 +177,5 @@ def resolve_boss_name(boss_name: str) -> dict[str, Any] | None:
     return None
 
 
-class AbilityType(str, Enum):
-    """Type of boss ability based on player impact."""
-
-    # Direct damage to players
-    TANK_BUSTER = "tankbuster"
-    DUAL_TANK_BUSTER = "dual_tankbuster"
-    RAIDWIDE = "raidwide"
-    SMALL_PARTY = "small_party"
-    PAIR = "pair"
-    SHARE = "share"
-    STACK = "stack"
-    
-    # AoE mechanics
-    AOE = "aoe"
-    CONE = "cone"
-    DONUT = "donut"
-    LINE = "line"
-    
-    # Movement/mechanic
-    KNOCKBACK = "knockback"
-    PULL = "pull"
-    TETHER = "tether"
-    PROTEAN = "protean"
-    
-    # Debuffs/buffs
-    DEBUFF = "debuff"
-    BUFF = "buff"
-    
-    # Phase transitions
-    PHASE_CHANGE = "phase_change"
-    ENRAGE = "enrage"
-    
-    # Untargeted/utility
-    BUFF_SELF = "buff_self"
-    SUMMON = "summon"
-    UNTARGETED = "untargeted"
-
-
-# Abilities that always hit players
-ALWAYS_PLAYER_HIT_PATTERNS = [
-    "tank", "buster", "raidwide", "aoe", "cone", "line", "flare",
-    "thunder", "meteor", "quake", "doom", "death", "enrage",
-    "attack", "strike", "slash", "claw", "fang", "tail",
-    "beam", "laser", "cleave", "breath", "gaze", "pulse",
-    "eruption", "explosion", "wave", "nova", "burst",
-    "knockback", "pull", "tether", "stack", "share",
-    "debuff", "vuln", "bleed", "poison", "curse",
-    "phase", "enrage", "ultimate", "inferno", "firestorm",
-    "fire", "ice", "blizzard", "water", "stone", "aero",
-    "holy", "firaga", "thundaga", "blizzaga", "waterga",
-    "stonega", "aeroga", "void", "dark", "umbra", "astral",
-    "void", "sacrifice", "annihil", "obliterate",
-    "mega", "ultra", "giga", "hyper", "pan", "exat", "tetrad",
-    "octo", "hexa", "penta", "quad", "chariot", "dynamo",
-    "sword", "axe", "hammer", "wing", "horn",
-    "screw", "propeller", "gear", "clock", "watch",
-    "plume", "feather", "talon", "beak", "roar", "howl",
-    "screech", "shriek", "glower", "stare", "glare",
-    "sweep", "swipe", "smash", "crush", "bash", "pummel",
-    "lariat", "headbutt", "kick", "punch", "slap",
-]
-
-
-# Abilities that don't hit players
-NEVER_PLAYER_HIT_PATTERNS = [
-    "sync", "reset", "ready", "waiting", "combat", "incombat",
-    "targetable", "untargetable", "death", "respawn", "wipe",
-    "limit break", "lb", "gauge", "check",
-    "start", "end", "begin", "init", "setup",
-    "self", "buff", "embrace", "protect", "shield",
-    "spawn", "summon", "add", "minion", "call", "conjure",
-]
-
-
-def classify_ability(ability_name: str) -> AbilityType | None:
-    """Classify a boss ability based on its name."""
-    name_lower = ability_name.lower()
-    
-    # Check if it NEVER hits players
-    for pattern in NEVER_PLAYER_HIT_PATTERNS:
-        if pattern in name_lower:
-            is_definite_hit = any(p in name_lower for p in ["tank", "buster", "raidwide", "aoe", "thunder", "flare", "meteor", "doom", "enrage"])
-            if not is_definite_hit:
-                return None
-    
-    # Check for phase change/enrage
-    for pattern in ["enrage", "limit break", "final", "victory"]:
-        if pattern in name_lower:
-            return AbilityType.ENRAGE
-    
-    # Check for phase change
-    for pattern in ["phase", "transition"]:
-        if pattern in name_lower:
-            return AbilityType.PHASE_CHANGE
-    
-    # Check dual tank buster first
-    if any(kw in name_lower for kw in ["dual", "double", "twin", "both"]) and "tank" in name_lower:
-        return AbilityType.DUAL_TANK_BUSTER
-    
-    # Check tank buster
-    if any(kw in name_lower for kw in ["tank", "buster", "tb", "tether", "single"]):
-        return AbilityType.TANK_BUSTER
-    
-    # Check raidwide
-    if any(kw in name_lower for kw in ["raidwide", "raid wide", "party-wide", "everyone", "all", "mega", "ultra", "giga", "hyper", "pan", "exat", "tetrad", "octo", "quad", "hexa", "penta"]):
-        return AbilityType.RAIDWIDE
-    
-    # Check pair
-    if any(kw in name_lower for kw in ["pair", "two", "2", "couple", "twins", "spread", "both", "duo", "binary"]):
-        return AbilityType.PAIR
-    
-    # Check share
-    if any(kw in name_lower for kw in ["share", "shared", "lightning", "thunder"]):
-        return AbilityType.SHARE
-    
-    # Check stack
-    if any(kw in name_lower for kw in ["stack", "together", "group up", "combine", "group"]) and "spread" not in name_lower:
-        return AbilityType.STACK
-    
-    # Check AoE types
-    if any(kw in name_lower for kw in ["cone", "frontal", "front", "cleave", "breath", "gaze", "beam", "laser", "sweep", "tail", "swipe"]):
-        return AbilityType.CONE
-    
-    if any(kw in name_lower for kw in ["donut", "ring", "orbit", "around", "surround", "outer", "hollow"]):
-        return AbilityType.DONUT
-    
-    if any(kw in name_lower for kw in ["line", "straight", "width", "ray", "slash", "rectangle", "cross", "plus"]):
-        return AbilityType.LINE
-    
-    # Check knockback
-    if any(kw in name_lower for kw in ["knockback", "knock back", "push", "repulsion", "blast", "shockwave", "wind", "blow", "launch"]):
-        return AbilityType.KNOCKBACK
-    
-    # Check pull
-    if any(kw in name_lower for kw in ["pull", "attract", "gravity", "singularity", "black hole", "hole", "absorb"]):
-        return AbilityType.PULL
-    
-    # Check tether
-    if any(kw in name_lower for kw in ["tether", "link", "chain", "bond", "connection"]):
-        return AbilityType.TETHER
-    
-    # Check protean
-    if any(kw in name_lower for kw in ["protean", "wave", "cardinal", "ordinal"]):
-        return AbilityType.PROTEAN
-    
-    # Check debuff
-    if any(kw in name_lower for kw in ["debuff", "bleed", "poison", "disease", "curse", "doom", "slow", "stun", "sleep", "bind", "silence", "blind", "vuln", "vulnerability", "weakness"]):
-        return AbilityType.DEBUFF
-    
-    # Check AoE general
-    if any(kw in name_lower for kw in ["aoe", "area", "circle", "radius", "burst", "explosion", "pulse", "wave", "eruption", "detonate", "nova", "flare", "firestorm", "inferno", "thunder", "blizzard", "flood", "tsunami", "meteor", "quake", "tremor", "fire", "ice", "holy", "water", "stone", "aero", "void", "dark"]):
-        return AbilityType.AOE
-    
-    # Default to AoE if it looks like an attack
-    if any(kw in name_lower for kw in ALWAYS_PLAYER_HIT_PATTERNS):
-        return AbilityType.AOE
-    
-    return None
-
-
-def hits_players(ability_name: str) -> bool:
-    """Determine if a boss ability hits players."""
-    name_lower = ability_name.lower()
-    
-    # Check if it's definitely NOT player-targeted
-    for pattern in NEVER_PLAYER_HIT_PATTERNS:
-        if pattern in name_lower:
-            override = any(o in name_lower for o in ["tank", "buster", "raidwide", "thunder", "flare", "meteor", "doom", "aoe", "enrage", "attack", "strike"])
-            if not override:
-                return False
-    
-    # Check if it definitely hits players
-    for pattern in ALWAYS_PLAYER_HIT_PATTERNS:
-        if pattern in name_lower:
-            return True
-    
-    # Check for common attack patterns
-    attack_indicators = [
-        "attack", "strike", "slash", "thrust", "claw", "fang", 
-        "tail", "bite", "smash", "crush", "blast", "burn",
-        "shoot", "fire", "ice", "thunder", "wind", "earth",
-        "water", "holy", "dark", "void", "poison", "blind",
-    ]
-    
-    if any(ind in name_lower for ind in attack_indicators):
-        return True
-    
-    return False
-
-
-class TargetType(str, Enum):
-    """Target type for boss abilities."""
-    
-    TANK = "tank"
-    HEALER = "healer"
-    DPS = "dps"
-    ANY = "any"
-    UNKNOWN = "unknown"
-
-
-def infer_target_type(ability_name: str) -> TargetType | None:
-    """Infer the target type of a boss ability."""
-    name_lower = ability_name.lower()
-    
-    # Check for tank-targeted abilities
-    if any(kw in name_lower for kw in ["tank", "buster", "tether"]):
-        return TargetType.TANK
-    
-    # Check for healer-targeted abilities
-    if any(kw in name_lower for kw in ["heal", "regen", "remedy", "cure"]):
-        return TargetType.HEALER
-    
-    # Check for DPS-targeted abilities
-    if any(kw in name_lower for kw in ["dps", "magic", "physical", "ranged", "melee"]):
-        return TargetType.DPS
-    
-    # Default to ANY for raid-wide or untargeted
-    if any(kw in name_lower for kw in ["raidwide", "aoe", "everyone", "all", "party"]):
-        return TargetType.ANY
-    
-    return TargetType.UNKNOWN
-
-# Configuration constants
-MULTI_HIT_TIME_THRESHOLD = 0.5  # seconds - abilities within this threshold are considered multi-hit
+# Grouping threshold — abilities within this window count as multi-hit
+MULTI_HIT_TIME_THRESHOLD = 0.5  # seconds
