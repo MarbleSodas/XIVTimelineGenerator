@@ -198,16 +198,9 @@ class CactbotClient:
             if ability_name.endswith("(cast)") or " (cast)" in ability_name:
                 continue
 
-            id_match = re.search(r'id:\s*"([^"]+)"', params_str)
-            source_match = re.search(r'source:\s*"([^"]+)"', params_str)
-            duration_match = re.search(r"duration\s+(\d+\.?\d*)", params_str)
-
             entry = {
                 "timestamp": timestamp,
                 "ability_name": ability_name,
-                "ability_id": id_match.group(1) if id_match else None,
-                "source": source_match.group(1) if source_match else None,
-                "duration": float(duration_match.group(1)) if duration_match else None,
                 "raw_line": line,
                 "hit_count": 1,
                 "is_multi_hit": False,

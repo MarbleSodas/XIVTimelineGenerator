@@ -35,9 +35,6 @@ class TimelineEntry(BaseModel):
 
     timestamp: float
     ability_name: str
-    ability_id: str | None = None
-    source: str | None = None
-    cast_duration: float | None = None
     description: str | None = None
     unmitigated_damage: float | None = None
     ability_type: str | None = None
@@ -47,7 +44,11 @@ class TimelineEntry(BaseModel):
     damage_max: float | None = None
     damage_median: float | None = None
     target_count: float | None = None
-    mitigation_note: str | None = None
+    # Multi-hit grouping fields
+    hit_count: int = 1
+    hits_per_cast: float | None = None
+    time_range_start: float | None = None
+    time_range_end: float | None = None
 
 
 class TimelinePhase(BaseModel):
@@ -90,6 +91,10 @@ def merge_dicts(a: dict[str, Any], b: dict[str, Any]) -> dict[str, Any]:
     res.update(b)
     return res
 
+def replace_list(a: list[Any], b: list[Any]) -> list[Any]:
+    """Replace list a with list b (last write wins)."""
+    return b if b else a
+
 class TimelineState(TypedDict, total=False):
     """Shared state flowing through the LangGraph pipeline."""
 
@@ -106,6 +111,7 @@ class TimelineState(TypedDict, total=False):
 
     # Outputs
     synthesized: Annotated[dict[str, Any], merge_dicts]
+    fflogs_reference: Annotated[list[dict[str, Any]], replace_list]
     cactbot_export: str
     cactbot_raw: str
 
@@ -120,7 +126,8 @@ timelines by combining cactbot data (community timeline repository) with
 strategy guide content.
 
 Rules:
-- Use cactbot timestamps as the source of truth for timing.
+- Use cactbot timestamps as the source of truth for timing (every entry must have a timestamp from cactbot).
+- Only include boss actions that have damage data from FFLogs. Do NOT include abilities with no damage values.
 - Use guide content for phase context, detailed mechanic descriptions, and tips.
 - Identify phase boundaries and group abilities into phases.
 - Write concise, actionable tips for each phase.
@@ -128,7 +135,7 @@ Rules:
 - The `--sync--` action helps signify phase boundaries, but you should NEVER output `--sync--` in the actual timeline output entries.
 - Set confidence based on how much data was available.
 - When damage data is available, prioritize describing high-damage abilities and note mitigation requirements.
-- For mitigation_note, suggest specific mitigation actions (e.g. Reprisal, Shield Samba, Kerachole) for abilities dealing significant damage.
+- Do NOT add numbered suffixes to ability names (e.g., do NOT write "Flame Floater 1", "Flame Floater 2"). Always use the base ability name exactly as it appears in the cactbot data. If the same ability appears multiple times in quick succession, list each occurrence separately with its own timestamp — post-processing will consolidate them.
 
 Output a SynthesizedTimeline JSON object."""
 
@@ -293,6 +300,108 @@ async def synthesize_node(state: TimelineState) -> dict[str, Any]:
     synthesized.setdefault("generated_at", datetime.now().isoformat())
     return {"synthesized": synthesized}
 
+def _get_base_ability_name(name: str) -> str:
+    """Strip numbered suffixes and parenthetical variants from an ability name.
+
+    Examples:
+        'Flame Floater 1'       -> 'Flame Floater'
+        'Xtreme Spectacular (line)' -> 'Xtreme Spectacular'
+        'Xtreme Spectacular x6' -> 'Xtreme Spectacular'
+        'Hot Aerial 3'          -> 'Hot Aerial'
+        'Cutback Blaze'         -> 'Cutback Blaze'
+    """
+    import re
+    # Strip trailing parenthetical like " (line)", " (big)", " (cast)"
+    name = re.sub(r'\s*\([^)]*\)\s*$', '', name)
+    # Strip trailing x-multiplier suffix like " x6", " x12"
+    name = re.sub(r'\s+x\d+$', '', name, flags=re.IGNORECASE)
+    # Strip trailing number suffix like " 1", " 2", " 12"
+    name = re.sub(r'\s+\d+$', '', name)
+    return name.strip()
+
+
+def _group_multi_hit_entries(
+    entries: list[dict[str, Any]],
+    threshold: float,
+) -> list[dict[str, Any]]:
+    """Consolidate consecutive same-base-name entries into grouped entries.
+
+    Entries whose base ability name matches (after stripping numbered suffixes
+    and parenthetical variants) and that are within *threshold* seconds of
+    each other (measured between consecutive hits) are merged into a single
+    entry with ``hit_count``, ``time_range_start``, and ``time_range_end``.
+    """
+    if not entries:
+        return entries
+
+    result: list[dict[str, Any]] = []
+    group: list[dict[str, Any]] = [entries[0]]
+
+    for entry in entries[1:]:
+        prev = group[-1]
+        prev_base = _get_base_ability_name(prev.get("ability_name", ""))
+        curr_base = _get_base_ability_name(entry.get("ability_name", ""))
+
+        same_base = prev_base.lower() == curr_base.lower()
+        within_threshold = (
+            abs(entry.get("timestamp", 0) - prev.get("timestamp", 0)) <= threshold
+        )
+
+        if same_base and within_threshold:
+            group.append(entry)
+        else:
+            result.append(_finalize_hit_group(group))
+            group = [entry]
+
+    result.append(_finalize_hit_group(group))
+    return result
+
+
+def _extract_xn_multiplier(name: str) -> int:
+    """Extract the xN multiplier from an ability name, if present.
+
+    Examples:
+        'Xtreme Spectacular x6' -> 6
+        'Epic Brotherhood x2'   -> 2
+        'Hot Impact'             -> 0  (no multiplier)
+    """
+    import re
+    m = re.search(r'\bx(\d+)$', name, flags=re.IGNORECASE)
+    return int(m.group(1)) if m else 0
+
+
+def _finalize_hit_group(group: list[dict[str, Any]]) -> dict[str, Any]:
+    """Collapse a group of same-name entries into one representative entry.
+
+    ``hit_count`` accounts for xN multipliers embedded in ability names.
+    For entries whose name includes an xN suffix (e.g. "Xtreme Spectacular x6"),
+    that multiplier is added to the group size.
+    """
+    if len(group) == 1:
+        entry = group[0]
+        # Even a single entry may carry an xN multiplier
+        xn = _extract_xn_multiplier(entry.get("ability_name", ""))
+        if xn > 0:
+            entry = entry.copy()
+            entry["hit_count"] = xn
+        return entry
+
+    first = group[0].copy()
+    base_name = _get_base_ability_name(first.get("ability_name", ""))
+    first["ability_name"] = base_name
+
+    # Sum: each entry counts as 1, but entries with xN suffix count as N instead
+    total_hits = 0
+    for e in group:
+        xn = _extract_xn_multiplier(e.get("ability_name", ""))
+        total_hits += xn if xn > 0 else 1
+
+    first["hit_count"] = total_hits
+    first["time_range_start"] = group[0].get("timestamp")
+    first["time_range_end"] = group[-1].get("timestamp")
+    return first
+
+
 async def append_damage_node(state: TimelineState) -> dict[str, Any]:
     """Append damage data to the synthesized timeline."""
     logger.info("[append_damage] Merging damage data into timeline")
@@ -316,8 +425,14 @@ async def append_damage_node(state: TimelineState) -> dict[str, Any]:
             # Clean cactbot specific suffixes for better matching
             clean_name = name.lower().replace("(cast)", "").replace("(damage)", "").replace("(enrage)", "").replace(" (", "(").strip()
             
+            # Also try the base name (without number / parenthetical suffix)
+            base_name = _get_base_ability_name(name).lower()
+            
             # Cactbot sometimes has "AbilityA/AbilityB", check both
             sub_names = [n.strip() for n in clean_name.split("/")]
+            # Add base name as an extra lookup candidate
+            if base_name not in sub_names:
+                sub_names.append(base_name)
             
             matched_dmg = None
             for sub_name in sub_names:
@@ -335,13 +450,46 @@ async def append_damage_node(state: TimelineState) -> dict[str, Any]:
                 entry["damage_max"] = matched_dmg.get("damage_max")
                 entry["damage_median"] = matched_dmg.get("damage_median")
                 entry["target_count"] = matched_dmg.get("target_count_avg")
-                # Set ability_id from FFLogs hex if not already set
-                if not entry.get("ability_id") and matched_dmg.get("ability_game_id"):
-                    entry["ability_id"] = matched_dmg.get("ability_game_id")
+                entry["hits_per_cast"] = matched_dmg.get("hits_per_cast")
                 matched_count += 1
                 
     logger.info("[append_damage] Attached damage values to %d timeline entries", matched_count)
-    return {"synthesized": synthesized}
+
+    # Build timeline-ordered FFLogs reference (all entries, pre-filter)
+    import copy
+    fflogs_reference: list[dict[str, Any]] = []
+    for phase in synthesized.get("phases", []):
+        for entry in phase.get("entries", []):
+            ref_entry = copy.deepcopy(entry)
+            ref_entry["phase"] = phase.get("name", "Unknown")
+            fflogs_reference.append(ref_entry)
+    fflogs_reference.sort(key=lambda e: e.get("timestamp", 0))
+
+    # Filter out entries without damage values
+    for phase in synthesized.get("phases", []):
+        phase["entries"] = [
+            e for e in phase.get("entries", [])
+            if e.get("unmitigated_damage") is not None
+        ]
+
+    # Group consecutive same-name multi-hit entries within each phase
+    from xiv_timeline.models import MULTI_HIT_GROUP_THRESHOLD
+    for phase in synthesized.get("phases", []):
+        phase["entries"] = _group_multi_hit_entries(
+            phase.get("entries", []),
+            threshold=MULTI_HIT_GROUP_THRESHOLD,
+        )
+
+    # Remove empty phases
+    synthesized["phases"] = [
+        p for p in synthesized.get("phases", [])
+        if p.get("entries")
+    ]
+
+    filtered_total = sum(len(p.get("entries", [])) for p in synthesized.get("phases", []))
+    logger.info("[append_damage] %d entries remain after filtering and grouping", filtered_total)
+
+    return {"synthesized": synthesized, "fflogs_reference": fflogs_reference}
 
 
 async def export_node(state: TimelineState) -> dict[str, Any]:
@@ -433,7 +581,8 @@ def _summarize_damage(damage_data: dict[str, Any]) -> str:
         dot_str = " (DOT)" if is_dot else ""
         lines.append(
             f"  {name}{type_str}{dot_str}: ~{dmg:,.0f} dmg "
-            f"(range: {d_min:,.0f}-{d_max:,.0f}, targets: {targets:.1f}, samples: {samples})"
+            f"(range: {d_min:,.0f}-{d_max:,.0f}, targets: {targets:.1f}, "
+            f"hits/cast: {stat.get('hits_per_cast', 1.0):.1f}, samples: {samples})"
         )
 
     return "\n".join(lines) if lines else "(no damage data available)"
@@ -505,4 +654,6 @@ async def run_timeline_generation(
         "synthesized": result["synthesized"],
         "cactbot_export": result["cactbot_export"],
         "cactbot_raw": result["cactbot_raw"],
+        "damage_data": result.get("damage_data", {}),
+        "fflogs_reference": result.get("fflogs_reference", []),
     }

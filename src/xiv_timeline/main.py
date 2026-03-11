@@ -157,6 +157,11 @@ def generate(
             cactbot_raw_path = cactbot_dir / f"{folder_name}.txt"
             cactbot_raw_path.write_text(result["cactbot_raw"], encoding="utf-8")
 
+            # Write FFLogs damage reference data (timeline-ordered)
+            fflogs_path = boss_output_dir / "fflogs_damage.json"
+            with open(fflogs_path, "w", encoding="utf-8") as f:
+                json.dump(result.get("fflogs_reference", []), f, indent=2, ensure_ascii=False)
+
             progress.update(task, description="Done!")
 
             # Summary output
@@ -174,6 +179,7 @@ def generate(
             console.print(f"  - JSON: {json_path}")
             console.print(f"  - Cactbot (synthesized): {cactbot_synth_path}")
             console.print(f"  - Cactbot (raw): {cactbot_raw_path}")
+            console.print(f"  - FFLogs damage reference: {fflogs_path}")
 
             if verbose:
                 console.print("")

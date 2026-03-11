@@ -179,3 +179,7 @@ def resolve_boss_name(boss_name: str) -> dict[str, Any] | None:
 
 # Grouping threshold — abilities within this window count as multi-hit
 MULTI_HIT_TIME_THRESHOLD = 0.5  # seconds
+
+# Grouping threshold for the final synthesized timeline output.
+# Consecutive same-name abilities within this window are consolidated.
+MULTI_HIT_GROUP_THRESHOLD = 15.0  # seconds

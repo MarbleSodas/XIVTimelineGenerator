@@ -180,15 +180,7 @@ class TimelineSynthesizer:
             for ability in phase.get("entries", []):
                 ts = ability.get("timestamp", 0)
                 name = ability.get("ability_name", "")
-                aid = ability.get("ability_id")
-                source = ability.get("source")
-
-                if aid and source:
-                    base_line = f'{ts} "{name}" Ability {{ id: "{aid}", source: "{source}" }}'
-                elif aid:
-                    base_line = f'{ts} "{name}" Ability {{ id: "{aid}" }}'
-                else:
-                    base_line = f'{ts} "{name}"'
+                base_line = f'{ts} "{name}"'
                     
                 damage = ability.get("unmitigated_damage")
                 if damage is not None:
@@ -208,12 +200,22 @@ class TimelineSynthesizer:
                     
                     if tags:
                         base_line += f" [{', '.join(tags)}]"
-                    
-                    # Add mitigation note if present
-                    mit_note = ability.get("mitigation_note")
-                    if mit_note:
-                        base_line += f" | mit: {mit_note}"
-                        
+
+                    # Multi-hit annotation
+                    hit_count = ability.get("hit_count", 1)
+                    if hit_count > 1:
+                        t_start = ability.get("time_range_start")
+                        t_end = ability.get("time_range_end")
+                        if t_start is not None and t_end is not None:
+                            base_line += f" (x{hit_count} hits, {t_start}s-{t_end}s)"
+                        else:
+                            base_line += f" (x{hit_count} hits)"
+
+                    # FFLogs hits-per-cast annotation
+                    hits_per_cast = ability.get("hits_per_cast")
+                    if hits_per_cast is not None and hits_per_cast > 1.0:
+                        base_line += f" [{hits_per_cast:.1f} hits/cast]"
+
                 lines.append(base_line)
 
             lines.append("")

@@ -32,6 +32,7 @@ class DamageStat(BaseModel):
     is_dot: bool = False
     # Enriched fields for mitigation planning
     target_count_avg: float = 0.0
+    hits_per_cast: float = 1.0  # avg player-hit events per cast (hitCount/uses)
     cast_duration: Optional[float] = None
     ability_game_id: Optional[str] = None  # hex ID for cactbot cross-reference
     model_config = ConfigDict(extra="allow")
@@ -471,6 +472,9 @@ class FFLogsClient:
             # Convert ability_id to hex for cactbot cross-reference
             ab_id = ability_ids.get(name, 0)
             game_id_hex = f"{ab_id:04X}" if ab_id else None
+
+            # Compute hits per cast: how many player-hit events per ability use
+            hits_per_cast = hits_per_use if uses > 0 else 1.0
                 
             results[name] = DamageStat(
                 ability_name=name,
@@ -484,6 +488,7 @@ class FFLogsClient:
                 ability_type=ability_type,
                 is_dot=is_dot,
                 target_count_avg=target_count_avg,
+                hits_per_cast=hits_per_cast,
                 ability_game_id=game_id_hex,
             )
             

@@ -266,7 +266,8 @@ async def test_append_damage_node_enriched_fields():
     result = await append_damage_node(state)
     entries = result["synthesized"]["phases"][0]["entries"]
 
-    # First entry should have all enriched fields
+    # Only the matched entry should remain (Unknown Ability filtered out)
+    assert len(entries) == 1
     matched = entries[0]
     assert matched["unmitigated_damage"] == 71519
     assert matched["ability_type"] == "Raidwide"
@@ -274,11 +275,13 @@ async def test_append_damage_node_enriched_fields():
     assert matched["damage_max"] == 85000
     assert matched["damage_median"] == 70000
     assert matched["target_count"] == 8.0
-    assert matched["ability_id"] == "9B86"
 
-    # Second entry should remain unmatched
-    unmatched = entries[1]
-    assert unmatched.get("unmitigated_damage") is None
+    # fflogs_reference should contain ALL entries (pre-filter) in timeline order
+    ref = result.get("fflogs_reference", [])
+    assert len(ref) == 2
+    assert ref[0]["ability_name"] == "Honey B. Finale"
+    assert ref[1]["ability_name"] == "Unknown Ability"
+    assert ref[0].get("phase") == "Phase 1"
 
 
 @pytest.mark.asyncio
@@ -315,4 +318,51 @@ async def test_export_node_with_damage_ranges():
     assert "55,000" in export_text
     assert "85,000" in export_text
     assert "Raidwide" in export_text
-    assert "Reprisal+Samba" in export_text
+
+
+@pytest.mark.asyncio
+async def test_append_damage_filters_no_damage_entries():
+    """Entries without damage data are removed; empty phases are pruned."""
+    state: TimelineState = {
+        "boss_name": "test",
+        "synthesized": {
+            "phases": [
+                {
+                    "name": "Phase 1",
+                    "entries": [
+                        {"timestamp": 5.0, "ability_name": "Big Hit"},
+                        {"timestamp": 10.0, "ability_name": "No Damage Move"},
+                    ],
+                },
+                {
+                    "name": "Phase 2",
+                    "entries": [
+                        {"timestamp": 20.0, "ability_name": "Also No Damage"},
+                    ],
+                },
+            ],
+        },
+        "damage_data": {
+            "Big Hit": {
+                "unmitigated_damage_70th": 50000,
+                "ability_type": "Raidwide",
+                "is_dot": False,
+                "damage_min": 40000,
+                "damage_max": 60000,
+                "damage_median": 50000,
+                "target_count_avg": 8.0,
+            }
+        },
+    }
+    result = await append_damage_node(state)
+    phases = result["synthesized"]["phases"]
+
+    # Phase 2 should be pruned (all entries had no damage)
+    assert len(phases) == 1
+    assert phases[0]["name"] == "Phase 1"
+
+    # Only "Big Hit" should remain in Phase 1
+    entries = phases[0]["entries"]
+    assert len(entries) == 1
+    assert entries[0]["ability_name"] == "Big Hit"
+    assert entries[0]["unmitigated_damage"] == 50000
