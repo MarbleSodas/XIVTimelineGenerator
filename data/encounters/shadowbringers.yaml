@@ -1,0 +1,76 @@
+# data/encounters/shadowbringers.yaml
+expansion: shadowbringers
+tiers:
+  - name: "Eden's Gate"
+    short_name: "E1S–E4S"
+    zone_id: 25
+    encounters:
+      - code: E1S
+        full_name: "Eden's Gate: Inundation (Savage)"
+        boss_name: "Void +"
+        encounter_id: null
+      - code: E2S
+        full_name: "Eden's Gate: Section (Savage)"
+        boss_name: "Dahu"
+        encounter_id: null
+      - code: E3S
+        full_name: "Eden's Gate: Sepimentation (Savage)"
+        boss_name: "Coco"
+        encounter_id: null
+      - code: E4S
+        full_name: "Eden's Gate: Annihilation (Savage)"
+        boss_name: "War's +"
+        encounter_id: null
+  - name: "Eden's Verse"
+    short_name: "E5S–E8S"
+    zone_id: 26
+    encounters:
+      - code: E5S
+        full_name: "Eden's Verse: Furor (Savage)"
+        boss_name: "Fiou"
+        encounter_id: null
+      - code: E6S
+        full_name: "Eden's Verse: Iconoclasm (Savage)"
+        boss_name: "Hydaelyn"
+        encounter_id: null
+      - code: E7S
+        full_name: "Eden's Verse: Revolution (Savage)"
+        boss_name: "Zodiar"
+        encounter_id: null
+      - code: E8S
+        full_name: "Eden's Verse: Samba (Savage)"
+        boss_name: "Knight"
+        encounter_id: null
+  - name: "Eden's Promise"
+    short_name: "E9S–E12S"
+    zone_id: 27
+    encounters:
+      - code: E9S
+        full_name: "Eden's Promise: Umbra (Savage)"
+        boss_name: "Cloud"
+        encounter_id: null
+      - code: E10S
+        full_name: "Eden's Promise: Lithobras (Savage)"
+        boss_name: "Earth"
+        encounter_id: null
+      - code: E11S
+        full_name: "Eden's Promise: Eologian (Savage)"
+        boss_name: "Light"
+        encounter_id: null
+      - code: E12S
+        full_name: "Eden's Promise: Testament (Savage)"
+        boss_name: "Void"
+        encounter_id: null
+ultimates:
+  - code: UCoB
+    full_name: "The Unending Coil of Bahamut (Ultimate)"
+    zone_id: 38
+    encounter_id: null
+  - code: UWU
+    full_name: "The Weapon's Refrain (Ultimate)"
+    zone_id: 39
+    encounter_id: null
+  - code: TEA
+    full_name: "The Epic of Alexander (Ultimate)"
+    zone_id: 40
+    encounter_id: null

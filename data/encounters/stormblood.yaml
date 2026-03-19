@@ -1,0 +1,63 @@
+# data/encounters/stormblood.yaml
+expansion: stormblood
+tiers:
+  - name: "Omega: Deltascape"
+    short_name: "O1S–O4S"
+    zone_id: 28
+    encounters:
+      - code: O1S
+        full_name: "Omega: Deltascape V1.0 (Savage)"
+        boss_name: "Fire"
+        encounter_id: null
+      - code: O2S
+        full_name: "Omega: Deltascape V2.0 (Savage)"
+        boss_name: "Ice"
+        encounter_id: null
+      - code: O3S
+        full_name: "Omega: Deltascape V3.0 (Savage)"
+        boss_name: "Wind"
+        encounter_id: null
+      - code: O4S
+        full_name: "Omega: Deltascape V4.0 (Savage)"
+        boss_name: "Earth"
+        encounter_id: null
+  - name: "Omega: Sigmascape"
+    short_name: "O5S–O8S"
+    zone_id: 29
+    encounters:
+      - code: O5S
+        full_name: "Omega: Sigmascape V1.0 (Savage)"
+        boss_name: "Gamma"
+        encounter_id: null
+      - code: O6S
+        full_name: "Omega: Sigmascape V2.0 (Savage)"
+        boss_name: "Sigma"
+        encounter_id: null
+      - code: O7S
+        full_name: "Omega: Sigmascape V3.0 (Savage)"
+        boss_name: "Omega"
+        encounter_id: null
+      - code: O8S
+        full_name: "Omega: Sigmascape V4.0 (Savage)"
+        boss_name: "Omega M&F"
+        encounter_id: null
+  - name: "Omega: Alphascape"
+    short_name: "O9S–O12S"
+    zone_id: 30
+    encounters:
+      - code: O9S
+        full_name: "Omega: Alphascape V1.0 (Savage)"
+        boss_name: "Chaos"
+        encounter_id: null
+      - code: O10S
+        full_name: "Omega: Alphascape V2.0 (Savage)"
+        boss_name: "Alpha"
+        encounter_id: null
+      - code: O11S
+        full_name: "Omega: Alphascape V3.0 (Savage)"
+        boss_name: "Omega"
+        encounter_id: null
+      - code: O12S
+        full_name: "Omega: Alphascape V4.0 (Savage)"
+        boss_name: "Omega"
+        encounter_id: null

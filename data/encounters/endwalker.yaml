@@ -1,0 +1,74 @@
+expansion: endwalker
+tiers:
+  - name: "Asphodelos"
+    short_name: "P1S–P4S"
+    zone_id: 54
+    encounters:
+      - code: P1S
+        full_name: "Asphodelos: The First Circle (Savage)"
+        boss_name: "Erichthonios"
+        encounter_id: null
+      - code: P2S
+        full_name: "Asphodelos: The Second Circle (Savage)"
+        boss_name: "Hippomenes"
+        encounter_id: null
+      - code: P3S
+        full_name: "Asphodelos: The Third Circle (Savage)"
+        boss_name: "The Challenging Mount"
+        encounter_id: null
+      - code: P4S
+        full_name: "Asphodelos: The Fourth Circle (Savage)"
+        boss_name: "Hesperos"
+        encounter_id: null
+
+  - name: "Abyssos"
+    short_name: "P5S–P8S"
+    zone_id: 55
+    encounters:
+      - code: P5S
+        full_name: "Abyssos: The Fifth Circle (Savage)"
+        boss_name: "Eos"
+        encounter_id: null
+      - code: P6S
+        full_name: "Abyssos: The Sixth Circle (Savage)"
+        boss_name: "Selene"
+        encounter_id: null
+      - code: P7S
+        full_name: "Abyssos: The Seventh Circle (Savage)"
+        boss_name: "Circus"
+        encounter_id: null
+      - code: P8S
+        full_name: "Abyssos: The Eighth Circle (Savage)"
+        boss_name: "Hegemom"
+        encounter_id: null
+
+  - name: "Anabaseios"
+    short_name: "P9S–P12S"
+    zone_id: 57
+    encounters:
+      - code: P9S
+        full_name: "Anabaseios: The Ninth Circle (Savage)"
+        boss_name: "Lamebrix"
+        encounter_id: null
+      - code: P10S
+        full_name: "Anabaseios: The Tenth Circle (Savage)"
+        boss_name: "Glopper"
+        encounter_id: null
+      - code: P11S
+        full_name: "Anabaseios: The Eleventh Circle (Savage)"
+        boss_name: "Mithrios"
+        encounter_id: null
+      - code: P12S
+        full_name: "Anabaseios: The Twelfth Circle (Savage)"
+        boss_name: "Absolute One"
+        encounter_id: null
+
+ultimates:
+  - code: TOP
+    full_name: "The Omega Protocol (Ultimate)"
+    zone_id: 59
+    encounter_id: null
+  - code: DSR
+    full_name: "Dragonsong's Reprise (Ultimate)"
+    zone_id: 41
+    encounter_id: null

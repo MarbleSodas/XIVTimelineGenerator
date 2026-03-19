@@ -1,0 +1,70 @@
+expansion: dawntrail
+tiers:
+  - name: "AAC Light-heavyweight"
+    short_name: "M1S–M4S"
+    zone_id: 62
+    encounters:
+      - code: M1S
+        full_name: "AAC Light-heavyweight M1 (Savage)"
+        boss_name: "Black Cat"
+        encounter_id: null
+      - code: M2S
+        full_name: "AAC Light-heavyweight M2 (Savage)"
+        boss_name: "Honey B. Lovely"
+        encounter_id: null
+      - code: M3S
+        full_name: "AAC Light-heavyweight M3 (Savage)"
+        boss_name: "Brute Bomber"
+        encounter_id: null
+      - code: M4S
+        full_name: "AAC Light-heavyweight M4 (Savage)"
+        boss_name: "Wicked Thunder"
+        encounter_id: null
+
+  - name: "AAC Cruiserweight"
+    short_name: "M5S–M8S"
+    zone_id: 68
+    encounters:
+      - code: M5S
+        full_name: "AAC Cruiserweight M1 (Savage)"
+        boss_name: "Dancing Green"
+        encounter_id: null
+      - code: M6S
+        full_name: "AAC Cruiserweight M2 (Savage)"
+        boss_name: "Sugar Riot"
+        encounter_id: null
+      - code: M7S
+        full_name: "AAC Cruiserweight M3 (Savage)"
+        boss_name: "Brute Abombinator"
+        encounter_id: null
+      - code: M8S
+        full_name: "AAC Cruiserweight M4 (Savage)"
+        boss_name: "Howling Blade"
+        encounter_id: null
+
+  - name: "AAC Heavyweight"
+    short_name: "M9S–M12S"
+    zone_id: 73
+    encounters:
+      - code: M9S
+        full_name: "AAC Heavyweight M1 (Savage)"
+        boss_name: "Vamp Fatale"
+        encounter_id: null
+      - code: M10S
+        full_name: "AAC Heavyweight M2 (Savage)"
+        boss_name: "Red Hot and Deep Blue"
+        encounter_id: null
+      - code: M11S
+        full_name: "AAC Heavyweight M3 (Savage)"
+        boss_name: "The Tyrant"
+        encounter_id: null
+      - code: M12S
+        full_name: "AAC Heavyweight M4 (Savage)"
+        boss_name: "Lindwurm"
+        encounter_id: null
+
+ultimates:
+  - code: FRU
+    full_name: "Futures Rewritten (Ultimate)"
+    zone_id: 65
+    encounter_id: null
