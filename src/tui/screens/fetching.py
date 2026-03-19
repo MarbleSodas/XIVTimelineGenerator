@@ -10,8 +10,7 @@ from concurrent.futures import ThreadPoolExecutor
 class FetchingScreen(Screen):
     CSS = """
     # fetch-container {
-        align: center middle;
-        height: 100%;
+        align: center top;
     }
     # status-text {
         padding: 1 2;

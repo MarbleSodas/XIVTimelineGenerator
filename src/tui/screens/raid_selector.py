@@ -9,21 +9,8 @@ from fflogs.encounters import EncounterLoader
 
 
 class RaidSelectorScreen(Screen):
-    CSS = """
-    RaidSelectorScreen {
-        layout: vertical;
-    }
-    # raid-tree {
-        height: 1fr;
-        width: 100%;
-    }
-    # nav-buttons {
-        dock: bottom;
-        height: 3;
-        align: center right;
-        padding: 1 2;
-    }
-    """
+    CSS = ""
+
 
     BINDINGS = [
         Binding("q", "quit", "Quit"),

@@ -8,7 +8,6 @@ from textual.binding import Binding
 class ResultsScreen(Screen):
     CSS = """
     # results-container {
-        height: 1fr;
     }
     # table-info {
         padding: 0 2;

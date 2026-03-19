@@ -8,7 +8,6 @@ from textual.binding import Binding
 class BossSelectorScreen(Screen):
     CSS = """
     # boss-list {
-        height: 1fr;
         padding: 1 2;
     }
     # header-text {
