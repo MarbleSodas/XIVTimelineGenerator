@@ -1,4 +1,4 @@
-from textual.app import TextualApp
+from textual.app import App as TextualApp
 from .screens.raid_selector import RaidSelectorScreen
 from .screens.boss_selector import BossSelectorScreen
 from .screens.fetching import FetchingScreen
