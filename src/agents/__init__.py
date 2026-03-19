@@ -1,0 +1,1 @@
+"""Atomic agents slot — implement in a future phase."""
