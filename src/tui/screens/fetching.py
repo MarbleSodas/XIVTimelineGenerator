@@ -36,8 +36,8 @@ class FetchingScreen(Screen):
         asyncio.create_task(self.run_fetch())
 
     async def run_fetch(self):
-        from ...fflogs.client import FFLogsClient
-        from ...fflogs.encounters import EncounterLoader
+        from fflogs.client import FFLogsClient
+        from fflogs.encounters import EncounterLoader
 
         loader = EncounterLoader()
         client = FFLogsClient()

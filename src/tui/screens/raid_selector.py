@@ -5,7 +5,7 @@ from textual.containers import Container, Horizontal
 from textual.binding import Binding
 import yaml
 
-from ...fflogs.encounters import EncounterLoader
+from fflogs.encounters import EncounterLoader
 
 
 class RaidSelectorScreen(Screen):
