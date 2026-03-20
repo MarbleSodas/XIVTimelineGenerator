@@ -32,7 +32,7 @@ class ExpansionData:
 
 class EncounterLoader:
     def __init__(self, data_dir: Path | None = None):
-        self.data_dir = data_dir or Path(__file__).parent.parent.parent.parent / "data" / "encounters"
+        self.data_dir = data_dir or Path(__file__).parent.parent.parent / "data" / "encounters"
 
     def load_expansion(self, expansion: str) -> list[Encounter]:
         yaml_path = self.data_dir / f"{expansion}.yaml"
