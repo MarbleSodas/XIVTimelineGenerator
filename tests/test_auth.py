@@ -7,6 +7,8 @@ def test_client_credentials_flow(monkeypatch):
 
     from fflogs.auth import AuthManager
     am = AuthManager(client_id="test_id", client_secret="test_secret")
+    am.cache.load_token = MagicMock(return_value=None)
+    am.cache.save_token = MagicMock()
 
     mock_response = MagicMock()
     mock_response.json.return_value = {"access_token": "abc", "expires_in": 3600}

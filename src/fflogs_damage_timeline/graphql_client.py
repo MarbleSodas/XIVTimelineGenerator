@@ -6,40 +6,95 @@ import requests
 FFLOGS_API_URL = "https://www.fflogs.com/api/v2/client"
 FFLOGS_TOKEN_URL = "https://www.fflogs.com/oauth/token"
 REQUEST_TIMEOUT_SECONDS = 30
+DEFAULT_REPORT_PAGE_SIZE = 25
 
-FETCH_REPORTS_QUERY = """
-query GetKillReports($zoneId: Int!, $encounterId: Int!) {
-  reportData {
-    reports(
-      zone: $zoneId
-      boss: $encounterId
-      difficulty: 101
-      limit: 30
-    ) {
-      data {
-        code
-        title
-        startTime
-        endTime
+FETCH_ZONE_ENCOUNTERS_QUERY = """
+query ResolveEncounter($zoneId: Int!) {
+  worldData {
+    zone(id: $zoneId) {
+      id
+      name
+      encounters {
+        id
+        name
       }
     }
   }
 }
 """
 
-FETCH_FIGHTS_QUERY = """
-query GetKillFights($reportCode: String!, $encounterId: Int!) {
+FETCH_REPORTS_PAGE_QUERY = """
+query GetReportsPage($zoneId: Int!, $page: Int!, $limit: Int!, $encounterId: Int!) {
+  reportData {
+    reports(
+      zoneID: $zoneId
+      page: $page
+      limit: $limit
+    ) {
+      current_page
+      has_more_pages
+      data {
+        code
+        title
+        startTime
+        endTime
+        fights(
+          killType: Kills
+          encounterID: $encounterId
+          translate: true
+        ) {
+          id
+          name
+          kill
+          difficulty
+          encounterID
+          startTime
+          endTime
+          friendlyPlayers
+        }
+      }
+    }
+  }
+}
+"""
+
+FETCH_REPORT_DETAILS_QUERY = """
+query GetReportDetails($reportCode: String!, $encounterId: Int!) {
   reportData {
     report(code: $reportCode) {
+      code
+      title
+      startTime
+      endTime
+      masterData(translate: true) {
+        actors {
+          gameID
+          id
+          name
+          server
+          petOwner
+          subType
+          type
+        }
+        abilities {
+          gameID
+          name
+          type
+        }
+      }
       fights(
         killType: Kills
         encounterID: $encounterId
+        translate: true
       ) {
         id
+        name
+        kill
+        difficulty
+        encounterID
         startTime
         endTime
-        encounterID
-        difficulty
+        friendlyPlayers
       }
     }
   }
@@ -47,19 +102,17 @@ query GetKillFights($reportCode: String!, $encounterId: Int!) {
 """
 
 FETCH_EVENTS_QUERY = """
-query GetDamageEvents($reportCode: String!, $fightId: Int!, $startTime: Float!, $endTime: Float!, $pageTimestamp: Float) {
+query GetDamageEvents($reportCode: String!, $fightId: Int!, $startTime: Float!, $endTime: Float!) {
   reportData {
     report(code: $reportCode) {
-      code
       events(
         dataType: DamageTaken
         fightIDs: [$fightId]
         startTime: $startTime
         endTime: $endTime
+        hostilityType: Friendlies
+        translate: true
         limit: 10000
-        useAbilityIDs: false
-        useActorIDs: false
-        hostilityType: 0
       ) {
         data
         nextPageTimestamp
@@ -117,23 +170,105 @@ class FFLogsGraphQLClient:
             raise ValueError(messages)
         return payload.get("data") or {}
 
-    def fetch_reports(self, zone_id: int, encounter_id: int) -> list[dict[str, Any]]:
-        data = self._post_graphql(
-            FETCH_REPORTS_QUERY,
-            {"zoneId": zone_id, "encounterId": encounter_id},
-        )
-        reports = (data.get("reportData") or {}).get("reports") or {}
-        return list(reports.get("data") or [])
+    @staticmethod
+    def _normalize_name(name: str) -> str:
+        return " ".join(name.lower().split())
 
-    def fetch_fights(self, report_code: str, encounter_id: int) -> list[dict[str, Any]]:
+    def resolve_encounter_id(
+        self,
+        zone_id: int,
+        boss_name: str,
+        full_name: Optional[str] = None,
+    ) -> int:
+        data = self._post_graphql(FETCH_ZONE_ENCOUNTERS_QUERY, {"zoneId": zone_id})
+        zone = (data.get("worldData") or {}).get("zone") or {}
+        encounters = list(zone.get("encounters") or [])
+
+        desired_names = {
+            self._normalize_name(boss_name),
+        }
+        if full_name:
+            desired_names.add(self._normalize_name(full_name))
+
+        for encounter in encounters:
+            encounter_name = self._normalize_name(encounter.get("name", ""))
+            if encounter_name in desired_names:
+                return int(encounter["id"])
+
+        raise ValueError(
+            f"Could not resolve encounter ID for '{boss_name}' in zone {zone_id}"
+        )
+
+    def fetch_reports(
+        self,
+        zone_id: int,
+        encounter_id: int,
+        limit: int,
+        page_size: int = DEFAULT_REPORT_PAGE_SIZE,
+    ) -> list[dict[str, Any]]:
+        if limit <= 0:
+            return []
+
+        page = 1
+        matched_reports: list[dict[str, Any]] = []
+        per_page = max(1, min(page_size, 100))
+
+        while len(matched_reports) < limit:
+            data = self._post_graphql(
+                FETCH_REPORTS_PAGE_QUERY,
+                {
+                    "zoneId": zone_id,
+                    "page": page,
+                    "limit": per_page,
+                    "encounterId": encounter_id,
+                },
+            )
+            reports_page = (data.get("reportData") or {}).get("reports") or {}
+            page_reports = list(reports_page.get("data") or [])
+
+            for report in page_reports:
+                fights = [fight for fight in report.get("fights") or [] if fight.get("kill")]
+                if not fights:
+                    continue
+                matched_reports.append({**report, "fights": fights})
+                if len(matched_reports) >= limit:
+                    break
+
+            if len(matched_reports) >= limit:
+                break
+            if not reports_page.get("has_more_pages"):
+                break
+            page += 1
+
+        return matched_reports[:limit]
+
+    def fetch_report_details(
+        self,
+        report_code: str,
+        encounter_id: int,
+    ) -> Optional[dict[str, Any]]:
         data = self._post_graphql(
-            FETCH_FIGHTS_QUERY,
-            {"reportCode": report_code, "encounterId": encounter_id},
+            FETCH_REPORT_DETAILS_QUERY,
+            {
+                "reportCode": report_code,
+                "encounterId": encounter_id,
+            },
         )
         report = (data.get("reportData") or {}).get("report")
         if report is None:
-            return []
-        return list(report.get("fights") or [])
+            return None
+
+        fights = [fight for fight in report.get("fights") or [] if fight.get("kill")]
+        master_data = report.get("masterData") or {}
+        return {
+            "code": report.get("code", report_code),
+            "title": report.get("title", ""),
+            "startTime": report.get("startTime"),
+            "endTime": report.get("endTime"),
+            "actors": list(master_data.get("actors") or []),
+            "abilities": list(master_data.get("abilities") or []),
+            "fights": fights,
+        }
 
     def fetch_events(
         self,
@@ -143,30 +278,33 @@ class FFLogsGraphQLClient:
         end_time: float,
     ) -> list[dict[str, Any]]:
         all_events: list[dict[str, Any]] = []
-        page_timestamp: Optional[float] = None
+        page_start_time = float(start_time)
+        desired_end_time = float(end_time)
 
         while True:
-            variables: dict[str, Any] = {
-                "reportCode": report_code,
-                "fightId": fight_id,
-                "startTime": start_time,
-                "endTime": end_time,
-            }
-            if page_timestamp is not None:
-                variables["pageTimestamp"] = page_timestamp
-
-            data = self._post_graphql(FETCH_EVENTS_QUERY, variables)
+            data = self._post_graphql(
+                FETCH_EVENTS_QUERY,
+                {
+                    "reportCode": report_code,
+                    "fightId": fight_id,
+                    "startTime": page_start_time,
+                    "endTime": desired_end_time,
+                },
+            )
             report = (data.get("reportData") or {}).get("report")
             if report is None:
                 break
 
             events = report.get("events") or {}
-            page_events = events.get("data") or []
-            all_events.extend(page_events)
+            all_events.extend(events.get("data") or [])
 
             next_page = events.get("nextPageTimestamp")
             if next_page is None:
                 break
-            page_timestamp = float(next_page)
+
+            next_page_time = float(next_page)
+            if next_page_time >= desired_end_time:
+                break
+            page_start_time = next_page_time
 
         return all_events
