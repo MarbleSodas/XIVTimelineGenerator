@@ -633,10 +633,14 @@ def build_time_clusters(branch_rows: list[dict[str, Any]]) -> list[dict[str, Any
     windows: list[dict[str, Any]] = []
     for row in branch_rows:
         report_code = row["report_code"]
+        fight = row.get("fight") or {}
         for window in get_row_windows(row):
             windows.append(
                 {
                     "report_code": report_code,
+                    "fight_index": fight.get("fight_index"),
+                    "fight_id": fight.get("fight_id"),
+                    "sample_key": row.get("sample_key"),
                     "timestamp_ms": int(window["timestamp_ms"]),
                     "ability_names": list(window["ability_names"]),
                     "events": [deepcopy(event) for event in window.get("events") or []],

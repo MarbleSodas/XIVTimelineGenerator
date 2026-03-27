@@ -7,6 +7,7 @@ import os
 from typing import Any
 
 import requests
+from fflogs.env import load_project_env
 
 
 class MiniMaxError(RuntimeError):
@@ -22,8 +23,9 @@ class MiniMaxClient:
         timeout_seconds: int = 60,
         session: requests.Session | None = None,
     ):
-        self.api_key = api_key or os.environ.get("OPENAI_API_KEY", "")
-        self.base_url = (base_url or os.environ.get("OPENAI_BASE_URL") or "https://api.minimax.io/v1").rstrip("/")
+        load_project_env()
+        self.api_key = api_key or _resolve_api_key()
+        self.base_url = (base_url or _resolve_base_url()).rstrip("/")
         self.model = model
         self.timeout_seconds = timeout_seconds
         self.session = session or requests.Session()
@@ -37,16 +39,22 @@ class MiniMaxClient:
         max_retries: int = 2,
     ) -> dict[str, Any]:
         if not self.api_key:
-            raise MiniMaxError("OPENAI_API_KEY is required for MiniMax requests")
+            raise MiniMaxError(
+                "MINIMAX_API_KEY or OPENAI_API_KEY is required for MiniMax requests"
+            )
 
         last_error: Exception | None = None
         for attempt in range(max_retries + 1):
-            raw_content = self._request_content(
-                system_prompt=system_prompt,
-                user_prompt=user_prompt,
-                temperature=temperature,
-                use_json_response_format=(attempt == 0),
-            )
+            try:
+                raw_content = self._request_content(
+                    system_prompt=system_prompt,
+                    user_prompt=user_prompt,
+                    temperature=temperature,
+                    use_json_response_format=(attempt == 0),
+                )
+            except requests.RequestException as error:
+                last_error = error
+                continue
             try:
                 payload = self._extract_json(raw_content)
             except (json.JSONDecodeError, MiniMaxError) as error:
@@ -57,6 +65,8 @@ class MiniMaxClient:
                 continue
             return payload
 
+        if isinstance(last_error, requests.RequestException):
+            raise MiniMaxError(f"MiniMax request failed: {last_error}")
         raise MiniMaxError(f"Failed to parse MiniMax JSON response: {last_error}")
 
     def _request_content(
@@ -131,3 +141,19 @@ class MiniMaxClient:
         if start == -1 or end == -1 or end < start:
             raise MiniMaxError("MiniMax response did not contain a JSON object")
         return json.loads(candidate[start : end + 1])
+
+
+def _resolve_api_key() -> str:
+    return (
+        os.environ.get("MINIMAX_API_KEY")
+        or os.environ.get("OPENAI_API_KEY")
+        or ""
+    )
+
+
+def _resolve_base_url() -> str:
+    return (
+        os.environ.get("MINIMAX_BASE_URL")
+        or os.environ.get("OPENAI_BASE_URL")
+        or "https://api.minimax.io/v1"
+    )

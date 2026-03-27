@@ -2,6 +2,7 @@ import os
 from typing import Any, Optional
 
 import requests
+from fflogs.env import load_project_env
 
 FFLOGS_API_URL = "https://www.fflogs.com/api/v2/client"
 FFLOGS_TOKEN_URL = "https://www.fflogs.com/oauth/token"
@@ -101,6 +102,20 @@ query GetReportDetails($reportCode: String!, $encounterId: Int!) {
 }
 """
 
+FETCH_PLAYER_DETAILS_QUERY = """
+query GetPlayerDetails($reportCode: String!, $fightIds: [Int!]) {
+  reportData {
+    report(code: $reportCode) {
+      playerDetails(
+        fightIDs: $fightIds
+        translate: true
+        includeCombatantInfo: true
+      )
+    }
+  }
+}
+"""
+
 FETCH_EVENTS_QUERY = """
 query GetDamageEvents($reportCode: String!, $fightId: Int!, $startTime: Float!, $endTime: Float!) {
   reportData {
@@ -129,6 +144,7 @@ class FFLogsGraphQLClient:
         client_id: Optional[str] = None,
         client_secret: Optional[str] = None,
     ):
+        load_project_env()
         self._client_id = client_id or os.environ.get("FFLOGS_CLIENT_ID", "")
         self._client_secret = client_secret or os.environ.get("FFLOGS_CLIENT_SECRET", "")
         self._token: Optional[str] = None
@@ -260,6 +276,22 @@ class FFLogsGraphQLClient:
 
         fights = [fight for fight in report.get("fights") or [] if fight.get("kill")]
         master_data = report.get("masterData") or {}
+        fight_ids = [
+            int(fight["id"])
+            for fight in fights
+            if fight.get("id") is not None
+        ]
+        player_details: dict[str, Any] = {}
+        if fight_ids:
+            try:
+                player_details = self.fetch_player_details(
+                    report_code=report_code,
+                    fight_ids=fight_ids,
+                )
+            except Exception:
+                # Player details only enrich report metadata; timeline generation
+                # should still proceed when this optional query is unavailable.
+                player_details = {}
         return {
             "code": report.get("code", report_code),
             "title": report.get("title", ""),
@@ -267,8 +299,26 @@ class FFLogsGraphQLClient:
             "endTime": report.get("endTime"),
             "actors": list(master_data.get("actors") or []),
             "abilities": list(master_data.get("abilities") or []),
+            "playerDetails": player_details,
             "fights": fights,
         }
+
+    def fetch_player_details(
+        self,
+        report_code: str,
+        fight_ids: list[int],
+    ) -> dict[str, Any]:
+        if not fight_ids:
+            return {}
+        data = self._post_graphql(
+            FETCH_PLAYER_DETAILS_QUERY,
+            {
+                "reportCode": report_code,
+                "fightIds": fight_ids,
+            },
+        )
+        report = (data.get("reportData") or {}).get("report") or {}
+        return report.get("playerDetails") or {}
 
     def fetch_events(
         self,

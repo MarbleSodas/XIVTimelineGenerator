@@ -1,6 +1,7 @@
 from fflogs_damage_timeline.graphql_client import (
     FFLogsGraphQLClient,
     FETCH_EVENTS_QUERY,
+    FETCH_PLAYER_DETAILS_QUERY,
     FETCH_REPORT_DETAILS_QUERY,
     FETCH_REPORTS_PAGE_QUERY,
 )
@@ -108,7 +109,85 @@ def test_fetch_events_uses_next_page_timestamp_for_pagination():
     assert [event["timestamp"] for event in events] == [1000, 1500]
 
 
+def test_fetch_report_details_queries_player_details_with_fight_ids():
+    client = FFLogsGraphQLClient("id", "secret")
+    calls = []
+
+    def fake_post(query, variables):
+        calls.append((query, variables))
+        if query == FETCH_REPORT_DETAILS_QUERY:
+            return {
+                "reportData": {
+                    "report": {
+                        "code": "ABC123",
+                        "title": "AAC Heavyweight",
+                        "startTime": 1000,
+                        "endTime": 5000,
+                        "masterData": {
+                            "actors": [{"id": 1, "name": "Tank"}],
+                            "abilities": [{"gameID": 1, "name": "Crown of Arcadia"}],
+                        },
+                        "fights": [
+                            {"id": 10, "kill": True},
+                            {"id": 11, "kill": True},
+                        ],
+                    }
+                }
+            }
+        if query == FETCH_PLAYER_DETAILS_QUERY:
+            return {
+                "reportData": {
+                    "report": {
+                        "playerDetails": {
+                            "tanks": [{"name": "Tank One", "combatantInfo": {"hitPoints": 220000}}],
+                            "healers": [{"name": "Healer One", "combatantInfo": {"hitPoints": 160000}}],
+                        }
+                    }
+                }
+            }
+        raise AssertionError(f"Unexpected query: {query}")
+
+    client._post_graphql = fake_post
+
+    details = client.fetch_report_details("ABC123", 103)
+
+    assert details["code"] == "ABC123"
+    assert details["playerDetails"]["tanks"][0]["combatantInfo"]["hitPoints"] == 220000
+    assert calls[1][0] == FETCH_PLAYER_DETAILS_QUERY
+    assert calls[1][1]["fightIds"] == [10, 11]
+
+
+def test_fetch_report_details_ignores_player_detail_failures():
+    client = FFLogsGraphQLClient("id", "secret")
+
+    def fake_post(query, variables):
+        if query == FETCH_REPORT_DETAILS_QUERY:
+            return {
+                "reportData": {
+                    "report": {
+                        "code": "ABC123",
+                        "title": "AAC Heavyweight",
+                        "startTime": 1000,
+                        "endTime": 5000,
+                        "masterData": {"actors": [], "abilities": []},
+                        "fights": [{"id": 10, "kill": True}],
+                    }
+                }
+            }
+        if query == FETCH_PLAYER_DETAILS_QUERY:
+            raise ValueError("fightIDs required")
+        raise AssertionError(f"Unexpected query: {query}")
+
+    client._post_graphql = fake_post
+
+    details = client.fetch_report_details("ABC123", 103)
+
+    assert details["code"] == "ABC123"
+    assert details["playerDetails"] == {}
+
+
 def test_queries_request_translated_english_names():
     assert "translate: true" in FETCH_REPORTS_PAGE_QUERY
     assert "translate: true" in FETCH_REPORT_DETAILS_QUERY
     assert "translate: true" in FETCH_EVENTS_QUERY
+    assert "translate: true" in FETCH_PLAYER_DETAILS_QUERY

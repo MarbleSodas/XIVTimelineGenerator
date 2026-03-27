@@ -449,7 +449,7 @@ class TestOutput:
 
         assert data["report"]["code"] == "ABC123"
 
-    def test_postprocessed_output_writes_suffixed_file_in_encounter_folder(self, tmp_path):
+    def test_postprocessed_output_writes_suffixed_file_in_stage_folder(self, tmp_path):
         from fflogs_damage_timeline.output import write_postprocessed_report
 
         postprocessed = {
@@ -472,13 +472,13 @@ class TestOutput:
             postprocessed,
         )
 
-        assert result == tmp_path / "M11S" / "ABC123.postprocessed.json"
+        assert result == tmp_path / "M11S" / "postprocessed" / "ABC123.postprocessed.json"
         with result.open() as file_handle:
             data = json.load(file_handle)
         assert data["fights"][0]["damage_events"][0]["ability_name"] == "Crown of Arcadia"
         assert "fields" not in data
 
-    def test_aligned_postprocessed_output_writes_suffixed_file_in_encounter_folder(self, tmp_path):
+    def test_aligned_postprocessed_output_writes_suffixed_file_in_stage_folder(self, tmp_path):
         from fflogs_damage_timeline.output import write_aligned_postprocessed_report
 
         aligned_report = {
@@ -499,13 +499,13 @@ class TestOutput:
             aligned_report,
         )
 
-        assert result == tmp_path / "M11S" / "ABC123.aligned.json"
+        assert result == tmp_path / "M11S" / "aligned" / "ABC123.aligned.json"
         with result.open() as file_handle:
             data = json.load(file_handle)
         assert data["fights"][0]["damage_events"][0]["timestamp"] == "00:01.000"
         assert "alignment_summary" not in data
 
-    def test_generated_timeline_output_writes_suffixed_file_in_encounter_folder(self, tmp_path):
+    def test_generated_timeline_output_writes_suffixed_file_in_stage_folder(self, tmp_path):
         from fflogs_damage_timeline.output import write_generated_timeline
 
         generated_timeline = {
@@ -534,11 +534,50 @@ class TestOutput:
             generated_timeline,
         )
 
-        assert result == tmp_path / "M11S" / "fight-0-branch-1.timeline.json"
+        assert result == tmp_path / "M11S" / "generated" / "fight-0-branch-1.timeline.json"
         with result.open() as file_handle:
             data = json.load(file_handle)
         assert data["events"][0]["ability_name"] == "Crown of Arcadia"
         assert data["events"][0]["unmitigated_damage"] == 160000
+
+    def test_encounter_timeline_output_writes_single_encounter_file(self, tmp_path):
+        from fflogs_damage_timeline.output import write_encounter_timeline
+
+        encounter_timeline = {
+            "encounter_code": "M11S",
+            "report_codes": ["R1", "R2"],
+            "report_count": 2,
+            "aligned_fight_count": 3,
+            "source_fight_indexes": [0, 1],
+            "events": [
+                {
+                    "timestamp": "00:12.250",
+                    "timestamp_ms": 12250,
+                    "event_kind": "stable",
+                    "ability_name": "Crown of Arcadia",
+                    "classification": "raidwide",
+                    "is_dot": False,
+                    "is_multi_hit": False,
+                    "unmitigated_damage": 200000,
+                    "ability_type": "physical",
+                    "support_report_count": 2,
+                    "support_fight_count": 3,
+                    "support_fight_indexes": [0, 1],
+                }
+            ],
+        }
+
+        result = write_encounter_timeline(
+            tmp_path,
+            "M11S",
+            encounter_timeline,
+        )
+
+        assert result == tmp_path / "M11S" / "generated" / "encounter.timeline.json"
+        with result.open() as file_handle:
+            data = json.load(file_handle)
+        assert data["events"][0]["ability_name"] == "Crown of Arcadia"
+        assert data["report_count"] == 2
 
 
 def test_cli_builds_report_timeline():
@@ -550,13 +589,46 @@ def test_cli_builds_report_timeline():
         "title": "AAC Heavyweight",
         "startTime": 1000,
         "endTime": 2000,
+        "playerDetails": {
+            "tanks": [
+                {"name": "Tank One", "combatantInfo": {"hitPoints": 220000}},
+                {"name": "Tank Two", "combatantInfo": {"hitPoints": 240000}},
+            ],
+            "healers": [
+                {"name": "Healer One", "combatantInfo": {"maxHitPoints": 160000}},
+                {"name": "Healer Two", "combatantInfo": {"maxHitPoints": 164000}},
+            ],
+        },
     }
     fight_timelines = [{"fight_id": 5}, {"fight_id": 6}]
 
     result = build_report_timeline(encounter_config, report_details, fight_timelines)
     assert result["report"]["code"] == "ABC123"
     assert result["report"]["kill_fight_count"] == 2
+    assert result["report"]["minimum_tank_health"] == 220000
+    assert result["report"]["minimum_healer_health"] == 160000
     assert [fight["fight_id"] for fight in result["fights"]] == [5, 6]
+
+
+def test_cli_builds_report_timeline_with_missing_role_health():
+    from fflogs_damage_timeline.cli import build_report_timeline
+
+    encounter_config = {"code": "M11S", "boss_name": "The Tyrant"}
+    report_details = {
+        "code": "ABC123",
+        "title": "AAC Heavyweight",
+        "startTime": 1000,
+        "endTime": 2000,
+        "playerDetails": {
+            "tanks": [{"name": "Tank One"}],
+            "healers": [{"name": "Healer One", "combatantInfo": {"gear": []}}],
+        },
+    }
+
+    result = build_report_timeline(encounter_config, report_details, [{"fight_id": 5}])
+
+    assert result["report"]["minimum_tank_health"] is None
+    assert result["report"]["minimum_healer_health"] is None
 
 
 def test_postprocess_builds_cleaned_damage_events():

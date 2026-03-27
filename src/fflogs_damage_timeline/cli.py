@@ -3,6 +3,7 @@ import logging
 import sys
 from pathlib import Path
 
+from agents import process_reports
 from agents.encounter_research import EncounterResearchService
 from agents.encounter_research.minimax_client import MiniMaxClient
 from agents.encounter_research.open_websearch_client import OpenWebSearchClient
@@ -11,13 +12,12 @@ from fflogs_damage_timeline.graphql_client import FFLogsGraphQLClient
 from fflogs_damage_timeline.normalizer import normalize_fight_timeline
 from fflogs_damage_timeline.output import (
     write_aligned_postprocessed_report,
-    write_generated_timeline,
+    write_encounter_timeline,
     write_postprocessed_report,
     write_report_timeline,
 )
 from fflogs_damage_timeline.postprocess import (
     build_aligned_postprocessed_reports,
-    build_generated_timelines,
     build_postprocessed_report,
 )
 
@@ -27,6 +27,15 @@ logging.basicConfig(
     datefmt="%H:%M:%S",
 )
 logger = logging.getLogger(__name__)
+
+PLAYER_DETAIL_HP_KEYS = (
+    "maxHitPoints",
+    "hitPoints",
+    "maxHP",
+    "hpMax",
+    "maxHealth",
+    "health",
+)
 
 
 def build_argument_parser() -> argparse.ArgumentParser:
@@ -104,6 +113,11 @@ def build_argument_parser() -> argparse.ArgumentParser:
         default="MiniMax-M2.7",
         help="MiniMax OpenAI-compatible model for research extraction (default: MiniMax-M2.7)",
     )
+    parser.add_argument(
+        "--timeline-llm-model",
+        default="MiniMax-M2.7",
+        help="MiniMax OpenAI-compatible model for encounter timeline generation (default: MiniMax-M2.7)",
+    )
     return parser
 
 
@@ -128,6 +142,7 @@ def build_report_timeline(
     report_details: dict,
     fight_timelines: list[dict],
 ) -> dict:
+    role_health_summary = summarize_report_role_health(report_details.get("playerDetails"))
     return {
         "encounter": encounter_config,
         "report": {
@@ -136,6 +151,7 @@ def build_report_timeline(
             "start_time_ms": report_details["startTime"],
             "end_time_ms": report_details["endTime"],
             "kill_fight_count": len(fight_timelines),
+            **role_health_summary,
         },
         "fights": fight_timelines,
     }
@@ -155,6 +171,59 @@ def build_research_service(args: argparse.Namespace) -> EncounterResearchService
         cache_dir=args.research_cache_dir,
         skip_live_search=args.skip_live_search,
     )
+
+
+def build_timeline_llm_client(args: argparse.Namespace) -> MiniMaxClient:
+    return MiniMaxClient(model=args.timeline_llm_model, timeout_seconds=180)
+
+
+def summarize_report_role_health(player_details: dict | None) -> dict[str, int | None]:
+    player_details = player_details or {}
+    tanks = player_details.get("tanks") if isinstance(player_details, dict) else None
+    healers = player_details.get("healers") if isinstance(player_details, dict) else None
+    return {
+        "minimum_tank_health": _minimum_health_value(tanks),
+        "minimum_healer_health": _minimum_health_value(healers),
+    }
+
+
+def _minimum_health_value(players: object) -> int | None:
+    if not isinstance(players, list):
+        return None
+    values = [
+        health_value
+        for health_value in (_extract_health_value(player) for player in players)
+        if health_value is not None
+    ]
+    if not values:
+        return None
+    return min(values)
+
+
+def _extract_health_value(payload: object) -> int | None:
+    for key in PLAYER_DETAIL_HP_KEYS:
+        value = _find_first_numeric_key(payload, key)
+        if value is not None:
+            return value
+    return None
+
+
+def _find_first_numeric_key(payload: object, target_key: str) -> int | None:
+    if isinstance(payload, dict):
+        direct_value = payload.get(target_key)
+        if isinstance(direct_value, (int, float)) and direct_value > 0:
+            return int(direct_value)
+        for nested_value in payload.values():
+            found = _find_first_numeric_key(nested_value, target_key)
+            if found is not None:
+                return found
+        return None
+    if isinstance(payload, list):
+        for item in payload:
+            found = _find_first_numeric_key(item, target_key)
+            if found is not None:
+                return found
+    return None
 
 
 def run(args: argparse.Namespace) -> int:
@@ -285,38 +354,48 @@ def run(args: argparse.Namespace) -> int:
             )
             logger.info("Wrote aligned post-processed report: %s", aligned_output_path)
 
-        generated_timelines = build_generated_timelines(aligned_reports)
+        try:
+            encounter_timeline = process_reports(
+                aligned_reports,
+                encounter_config,
+                build_timeline_llm_client(args),
+            )
+            logger.info(
+                "Generated atomic encounter timeline with %d events",
+                len(encounter_timeline.get("events") or []),
+            )
+        except Exception as error:
+            logger.error("Failed to generate atomic encounter timeline: %s", error)
+            return 1
+
         if args.research_mechanics:
             search_client = None
             try:
                 research_service = build_research_service(args)
                 search_client = research_service.search_client
-                generated_timelines = research_service.enrich_generated_timelines(
+                enriched_timelines = research_service.enrich_generated_timelines(
                     encounter_config,
-                    generated_timelines,
+                    [encounter_timeline],
                 )
+                encounter_timeline = enriched_timelines[0]
                 logger.info(
-                    "Enriched %d generated timelines with encounter research",
-                    len(generated_timelines),
+                    "Enriched atomic encounter timeline with encounter research",
                 )
             except Exception as error:
                 logger.warning(
-                    "Research enrichment failed; writing base generated timelines instead: %s",
+                    "Research enrichment failed; writing base encounter timeline instead: %s",
                     error,
                 )
             finally:
                 if search_client is not None and hasattr(search_client, "close"):
                     search_client.close()
 
-        for generated_timeline in generated_timelines:
-            generated_output_path = write_generated_timeline(
-                output_dir=generated_timelines_dir,
-                encounter_code=generated_timeline["encounter_code"],
-                fight_index=generated_timeline["fight_index"],
-                branch_index=generated_timeline["branch_index"],
-                generated_timeline=generated_timeline,
-            )
-            logger.info("Wrote generated timeline: %s", generated_output_path)
+        generated_output_path = write_encounter_timeline(
+            output_dir=generated_timelines_dir,
+            encounter_code=encounter_timeline["encounter_code"],
+            encounter_timeline=encounter_timeline,
+        )
+        logger.info("Wrote encounter timeline: %s", generated_output_path)
 
     logger.info(
         "Done. Successful reports: %d, Failed reports: %d",

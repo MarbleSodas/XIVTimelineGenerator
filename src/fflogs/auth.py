@@ -2,6 +2,7 @@ import os
 import requests
 from typing import Optional
 from .cache import CacheManager
+from .env import load_project_env
 
 TOKEN_URL = "https://www.fflogs.com/oauth/token"
 
@@ -9,6 +10,7 @@ class AuthManager:
     def __init__(self, client_id: Optional[str] = None,
                  client_secret: Optional[str] = None,
                  cache: Optional[CacheManager] = None):
+        load_project_env()
         self.client_id = client_id or os.environ.get("FFLOGS_CLIENT_ID", "")
         self.client_secret = client_secret or os.environ.get("FFLOGS_CLIENT_SECRET", "")
         self.cache = cache or CacheManager()

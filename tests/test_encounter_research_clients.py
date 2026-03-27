@@ -1,5 +1,9 @@
 import json
 
+import pytest
+import requests
+
+import fflogs.env as env_module
 from agents.encounter_research.minimax_client import MiniMaxClient
 from agents.encounter_research.open_websearch_client import OpenWebSearchClient
 
@@ -115,3 +119,72 @@ def test_minimax_client_retries_after_malformed_json(monkeypatch):
 
     assert payload["status"] == "matched"
     assert payload["confidence"] == 0.9
+
+
+def test_minimax_client_retries_after_request_timeout(monkeypatch):
+    client = MiniMaxClient(api_key="test-key")
+    responses = iter(
+        [
+            requests.Timeout("read timed out"),
+            "{\"selected_slot_ids\": [\"slot-0001\"]}",
+        ]
+    )
+
+    def fake_request_content(**kwargs):
+        response = next(responses)
+        if isinstance(response, Exception):
+            raise response
+        return response
+
+    monkeypatch.setattr(client, "_request_content", fake_request_content)
+
+    payload = client.chat_json("system", "user", max_retries=2)
+
+    assert payload["selected_slot_ids"] == ["slot-0001"]
+
+
+def test_minimax_client_prefers_minimax_env_configuration(monkeypatch):
+    monkeypatch.setenv("XIV_TIMELINE_SKIP_DOTENV", "1")
+    monkeypatch.setenv("MINIMAX_API_KEY", "minimax-key")
+    monkeypatch.setenv("MINIMAX_BASE_URL", "https://minimax.example/v1")
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    monkeypatch.delenv("OPENAI_BASE_URL", raising=False)
+    monkeypatch.setattr(env_module, "_HAS_LOADED_PROJECT_ENV", False)
+
+    client = MiniMaxClient()
+
+    assert client.api_key == "minimax-key"
+    assert client.base_url == "https://minimax.example/v1"
+
+
+def test_minimax_client_loads_credentials_from_dotenv(monkeypatch, tmp_path):
+    dotenv_path = tmp_path / ".env"
+    dotenv_path.write_text(
+        "MINIMAX_API_KEY=dotenv-key\nMINIMAX_BASE_URL=https://dotenv.example/v1\n",
+        encoding="utf-8",
+    )
+
+    monkeypatch.delenv("MINIMAX_API_KEY", raising=False)
+    monkeypatch.delenv("MINIMAX_BASE_URL", raising=False)
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    monkeypatch.delenv("OPENAI_BASE_URL", raising=False)
+    monkeypatch.delenv("XIV_TIMELINE_SKIP_DOTENV", raising=False)
+    monkeypatch.setenv("XIV_TIMELINE_DOTENV_PATH", str(dotenv_path))
+    monkeypatch.setattr(env_module, "_HAS_LOADED_PROJECT_ENV", False)
+
+    client = MiniMaxClient()
+
+    assert client.api_key == "dotenv-key"
+    assert client.base_url == "https://dotenv.example/v1"
+
+
+def test_minimax_client_errors_when_no_supported_api_key_is_configured(monkeypatch):
+    monkeypatch.setenv("XIV_TIMELINE_SKIP_DOTENV", "1")
+    monkeypatch.delenv("MINIMAX_API_KEY", raising=False)
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    monkeypatch.setattr(env_module, "_HAS_LOADED_PROJECT_ENV", False)
+
+    client = MiniMaxClient(api_key=None)
+
+    with pytest.raises(RuntimeError, match="MINIMAX_API_KEY or OPENAI_API_KEY"):
+        client.chat_json("system", "user", max_retries=0)

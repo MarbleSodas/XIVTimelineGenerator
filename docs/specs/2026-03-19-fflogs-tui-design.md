@@ -329,18 +329,17 @@ FFLOGS_CLIENT_SECRET=Q9YZmTib56VT6AGNhuQQ2iPDJiFLVYFiMLYmsQN9
 
 ---
 
-## 9. Future: Atomic Agents Integration Point
+## 9. Atomic Agents Integration Point
 
-`src/agents/__init__.py` is a stub. When atomic agents are added in a future phase, the interface will be:
+`src/agents/__init__.py` exposes the shared atomic timeline-generation entrypoint:
 
 ```python
-# agents/__init__.py (future)
-def process_reports(reports: list[Report], boss: Encounter) -> Any:
-    """Atomic agent processing slot — implement in future phases."""
-    raise NotImplementedError("atomic agents not yet integrated")
+# agents/__init__.py
+def process_reports(aligned_reports: list[dict], encounter_config: dict, llm_client: Any) -> dict:
+    """Generate one atomic encounter timeline from aligned report evidence."""
 ```
 
-The `ResultsScreen` will gain an "Process →" button that calls into this slot.
+The CLI calls this slot after aligned post-processing, and the TUI can reuse the same entrypoint.
 
 ---
 
